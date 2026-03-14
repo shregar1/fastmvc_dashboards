@@ -17,7 +17,8 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from configurations.secrets import SecretsConfiguration
-from services.secrets import build_secrets_backend
+
+from ..secrets import build_secrets_backend
 
 
 router = APIRouter(prefix="/dashboard/secrets", tags=["Secrets Dashboard"])

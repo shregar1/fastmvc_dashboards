@@ -13,7 +13,8 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from configurations.workflows import WorkflowsConfiguration
-from services.workflows.order_lifecycle import OrderWorkflowService
+
+from ..workflows import OrderWorkflowService
 
 
 router = APIRouter(prefix="/dashboard/workflows", tags=["Workflows Dashboard"])
