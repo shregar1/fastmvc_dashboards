@@ -2,7 +2,7 @@
 
 def test_layout_base_css():
     from fastmvc_dashboards.layout import BASE_CSS
-    assert "var(--bg)" in BASE_CSS
+    assert "--bg:" in BASE_CSS
     assert "var(--text)" in BASE_CSS
 
 
