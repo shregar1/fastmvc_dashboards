@@ -1,25 +1,16 @@
-# FastMVC Middleware - Development Dependencies
-# Install with: pip install -r requirements-dev.txt
+# Optional development dependencies for this package.
+# Primary install: pip install -e ".[dev]" (see pyproject.toml).
+# Then optionally: pip install -r requirements.txt
+#
+# Monorepo: python3 scripts/sync_package_tooling.py refreshes this file from the template.
 
-# Core dependency
-starlette>=0.27.0
-
-# Optional: JWT authentication support
-pyjwt>=2.0.0
-
-# Testing
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
 pytest-cov>=4.0.0
 httpx>=0.24.0
-
-# Type checking
 mypy>=1.0.0
-
-# Linting & Formatting
 ruff>=0.1.0
-
-# FastAPI for testing and examples
-fastapi>=0.100.0
-uvicorn>=0.20.0
-
+bandit>=1.7.0
+twine>=4.0.0
+build>=0.10.0
+pre-commit>=3.0.0
