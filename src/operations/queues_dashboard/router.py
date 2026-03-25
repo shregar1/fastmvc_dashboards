@@ -1,34 +1,42 @@
 """
-Queues & Jobs Dashboard Router.
-
-Provides a visual dashboard at `/dashboard/queues` that surfaces basic
-metrics and status information for message queues (RabbitMQ, SQS, NATS)
-and background workers (Celery, RQ, Dramatiq).
-
-The dashboard is intentionally read-only for destructive actions; it
-exposes JSON endpoints that applications can extend for pause/resume or
-replay semantics where needed.
+Queues & Jobs Dashboard Router with beautiful visualizations.
 """
 
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse
 from loguru import logger
 
-from configurations.jobs import JobsConfiguration
-from configurations.queues import QueuesConfiguration
-from core.utils.optional_imports import OptionalImports
+from fast_dashboards.core.registry import registry
+from fast_dashboards.core.seo import render_dashboard_inline_head
+from fast_dashboards.core._optional_import import optional_import
 
-boto3, _ = OptionalImports.optional_import("boto3")
-_celery_mod, Celery = OptionalImports.optional_import("celery", "Celery")
-rq, _ = OptionalImports.optional_import("rq")
-_redis_mod, Redis = OptionalImports.optional_import("redis", "Redis")
-_rq_registry_mod, FailedJobRegistry = OptionalImports.optional_import("rq.registry", "FailedJobRegistry")
+boto3, _ = optional_import("boto3")
+_celery_mod, Celery = optional_import("celery", "Celery")
+rq, _ = optional_import("rq")
+_redis_mod, Redis = optional_import("redis", "Redis")
+_rq_registry_mod, FailedJobRegistry = optional_import("rq.registry", "FailedJobRegistry")
+
+
+def _get_jobs_config() -> Optional[Any]:
+    """Get jobs configuration via registry."""
+    cfg_class = registry.get_config("jobs")
+    if cfg_class and hasattr(cfg_class, 'instance'):
+        return cfg_class.instance().get_config()
+    return None
+
+
+def _get_queues_config() -> Optional[Any]:
+    """Get queues configuration via registry."""
+    cfg_class = registry.get_config("queues")
+    if cfg_class and hasattr(cfg_class, 'instance'):
+        return cfg_class.instance().get_config()
+    return None
 
 
 router = APIRouter(prefix="/dashboard/queues", tags=["Queues Dashboard"])
@@ -39,7 +47,6 @@ def _inspect_rabbitmq(cfg) -> Optional[Dict[str, Any]]:
         return None
     management_url = getattr(cfg, "management_url", None)
     if not management_url:
-        # Management endpoint not configured; skip inspection but keep backend usable.
         return None
     try:
         auth = None
@@ -65,13 +72,17 @@ def _inspect_rabbitmq(cfg) -> Optional[Dict[str, Any]]:
             "messages": total_ready,
             "inFlight": total_unacked,
             "delayed": 0,
+            "icon": "🐰",
+            "color": "#ff6b6b"
         }
-    except Exception as exc:  # pragma: no cover - best effort
+    except Exception as exc:
         logger.warning(f"RabbitMQ inspection failed: {exc}")
         return {
             "backend": "rabbitmq",
             "name": management_url or cfg.url,
-            "error": str(exc),
+            "error": str(exc)[:50],
+            "icon": "🐰",
+            "color": "#ff6b6b"
         }
 
 
@@ -88,50 +99,55 @@ def _inspect_sqs(cfg) -> Optional[Dict[str, Any]]:
         sqs = boto3.client("sqs", region_name=cfg.region, **session_kwargs)
         attrs = sqs.get_queue_attributes(
             QueueUrl=cfg.queue_url,
-            AttributeNames=[
-                "ApproximateNumberOfMessages",
-                "ApproximateNumberOfMessagesNotVisible",
-                "ApproximateNumberOfMessagesDelayed",
-            ],
+            AttributeNames=["ApproximateNumberOfMessages", "ApproximateNumberOfMessagesNotVisible", "ApproximateNumberOfMessagesDelayed"],
         )["Attributes"]
         return {
             "backend": "sqs",
-            "name": cfg.queue_url,
+            "name": cfg.queue_url.split("/")[-1],
             "messages": int(attrs.get("ApproximateNumberOfMessages", "0")),
             "inFlight": int(attrs.get("ApproximateNumberOfMessagesNotVisible", "0")),
             "delayed": int(attrs.get("ApproximateNumberOfMessagesDelayed", "0")),
+            "icon": "📦",
+            "color": "#f59e0b"
         }
-    except Exception as exc:  # pragma: no cover - best effort
+    except Exception as exc:
         logger.warning(f"SQS inspection failed: {exc}")
         return {
             "backend": "sqs",
-            "name": cfg.queue_url,
-            "error": str(exc),
+            "name": cfg.queue_url.split("/")[-1] if cfg.queue_url else "SQS",
+            "error": str(exc)[:50],
+            "icon": "📦",
+            "color": "#f59e0b"
         }
 
 
 def _inspect_jobs() -> Dict[str, Any]:
-    cfg = JobsConfiguration.instance().get_config()
+    cfg = _get_jobs_config()
+    if cfg is None:
+        return {
+            "celery": {"enabled": False, "workers": 0, "active": 0, "icon": "🌿", "color": "#22c55e", "status": "disabled"},
+            "rq": {"enabled": False, "queueSize": 0, "failed": 0, "icon": "🔴", "color": "#ef4444", "status": "disabled"},
+            "dramatiq": {"enabled": False, "status": "n/a", "icon": "🎭", "color": "#8b5cf6", "status": "disabled"},
+        }
+    
     out: Dict[str, Any] = {
-        "celery": {"enabled": cfg.celery.enabled, "workers": None, "active": None},
-        "rq": {"enabled": cfg.rq.enabled, "queueSize": None, "failed": None},
-        "dramatiq": {"enabled": cfg.dramatiq.enabled, "status": None},
+        "celery": {"enabled": cfg.celery.enabled, "workers": 0, "active": 0, "icon": "🌿", "color": "#22c55e", "status": "idle"},
+        "rq": {"enabled": cfg.rq.enabled, "queueSize": 0, "failed": 0, "icon": "🔴", "color": "#ef4444", "status": "idle"},
+        "dramatiq": {"enabled": cfg.dramatiq.enabled, "status": "configured" if cfg.dramatiq.enabled else "n/a", "icon": "🎭", "color": "#8b5cf6", "status": "idle"},
     }
 
     if cfg.celery.enabled and Celery is not None:
         try:
-            app = Celery(
-                cfg.celery.namespace,
-                broker=cfg.celery.broker_url,
-                backend=cfg.celery.result_backend,
-            )
+            app = Celery(cfg.celery.namespace, broker=cfg.celery.broker_url, backend=cfg.celery.result_backend)
             insp = app.control.inspect()
             active = insp.active() or {}
             out["celery"]["workers"] = len(active)
             out["celery"]["active"] = sum(len(tasks or []) for tasks in active.values())
-        except Exception as exc:  # pragma: no cover
+            out["celery"]["status"] = "active" if len(active) > 0 else "idle"
+        except Exception as exc:
             logger.warning(f"Celery inspection failed: {exc}")
-            out["celery"]["error"] = str(exc)
+            out["celery"]["error"] = str(exc)[:30]
+            out["celery"]["status"] = "error"
 
     if cfg.rq.enabled and rq is not None and Redis is not None and FailedJobRegistry is not None:
         try:
@@ -140,13 +156,13 @@ def _inspect_jobs() -> Dict[str, Any]:
             out["rq"]["queueSize"] = queue.count
             failed_registry = FailedJobRegistry(cfg.rq.queue_name, connection=redis_conn)
             out["rq"]["failed"] = len(failed_registry)
-        except Exception as exc:  # pragma: no cover
+            out["rq"]["status"] = "active" if queue.count > 0 else "idle"
+        except Exception as exc:
             logger.warning(f"RQ inspection failed: {exc}")
-            out["rq"]["error"] = str(exc)
+            out["rq"]["error"] = str(exc)[:30]
+            out["rq"]["status"] = "error"
 
     if cfg.dramatiq.enabled:
-        # Dramatiq does not expose lightweight built-in inspection APIs;
-        # we simply surface that it is configured.
         out["dramatiq"]["status"] = "configured"
 
     return out
@@ -154,358 +170,547 @@ def _inspect_jobs() -> Dict[str, Any]:
 
 @router.get("", response_class=HTMLResponse, summary="Queues & Jobs Dashboard")
 async def queues_dashboard() -> HTMLResponse:
-    """
-    Render the queues & jobs dashboard page.
-    """
+    """Render the queues & jobs dashboard page."""
     _head_seo = render_dashboard_inline_head(
         page_title="FastMVC Queues & Jobs Dashboard",
         description="Queue backends, workers, and job runner status for RabbitMQ, SQS, NATS, Celery, RQ, and Dramatiq.",
         path="/dashboard/queues",
     )
-    html = (
-        """
-<!DOCTYPE html>
+    
+    html = f"""<!DOCTYPE html>
 <html lang="en">
-  <head>
-    """
-        + _head_seo
-        + """
+<head>
+    {_head_seo}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-      :root {
-        --bg: #020617;
-        --bg-card: #020617;
-        --bg-card-alt: #0b1120;
-        --accent: #22c55e;
-        --accent-soft: rgba(34, 197, 94, 0.12);
-        --danger: #ef4444;
-        --muted: #6b7280;
-        --text: #e5e7eb;
-        --text-soft: #9ca3af;
-        --radius-xl: 16px;
-        --shadow: 0 18px 45px rgba(15, 23, 42, 0.85);
-      }
-
-      * { box-sizing: border-box; }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
-          "Segoe UI", sans-serif;
-        background: radial-gradient(circle at top, #1f2937 0, #020617 45%, #000 100%);
-        color: var(--text);
-        display: flex;
-        align-items: stretch;
-        justify-content: center;
-        padding: 32px 16px;
-      }
-
-      .shell {
-        width: 100%;
-        max-width: 1160px;
-        background: linear-gradient(140deg, rgba(52, 211, 153, 0.4), rgba(15, 23, 42, 0.95));
-        border-radius: 24px;
-        padding: 1px;
-        box-shadow: var(--shadow);
-      }
-
-      .content {
-        border-radius: 24px;
-        background: radial-gradient(circle at top left, rgba(16, 185, 129, 0.2), #020617 55%);
-        padding: 22px 24px 24px;
-      }
-
-      .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 16px;
-        margin-bottom: 18px;
-      }
-
-      .header-main {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
-      .title {
-        font-size: 1.5rem;
-        font-weight: 650;
-        letter-spacing: 0.03em;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
-      .subtitle {
-        font-size: 0.9rem;
-        color: var(--text-soft);
-      }
-
-      .badge {
-        padding: 2px 9px;
-        border-radius: 999px;
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.09em;
-        background: var(--accent-soft);
-        border: 1px solid rgba(34, 197, 94, 0.45);
-        color: var(--accent);
-      }
-
-      .grid {
-        display: grid;
-        grid-template-columns: minmax(0, 2.1fr) minmax(0, 2.5fr);
-        gap: 16px;
-      }
-
-      .card {
-        border-radius: var(--radius-xl);
-        background: linear-gradient(165deg, var(--bg-card-alt), var(--bg-card));
-        border: 1px solid rgba(148, 163, 184, 0.4);
-        padding: 12px 12px 10px;
-        box-shadow: 0 14px 28px rgba(15, 23, 42, 0.9);
-        min-height: 220px;
-      }
-
-      .card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 8px;
-      }
-
-      .card-title {
-        font-size: 0.9rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-      }
-
-      .pill {
-        padding: 3px 10px;
-        border-radius: 999px;
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        background: rgba(15, 23, 42, 0.85);
-        border: 1px solid rgba(148, 163, 184, 0.5);
-        color: var(--text-soft);
-      }
-
-      .list {
-        max-height: 360px;
-        overflow-y: auto;
-        padding-right: 4px;
-      }
-
-      .queue-row, .job-row {
-        display: grid;
-        grid-template-columns: auto 1fr auto;
-        align-items: center;
-        gap: 8px;
-        padding: 7px 8px;
-        border-radius: 999px;
-        margin-bottom: 4px;
-        background: rgba(15, 23, 42, 0.7);
-        border: 1px solid rgba(31, 41, 55, 0.9);
-      }
-
-      .queue-meta, .job-meta {
-        font-size: 0.76rem;
-        color: var(--text-soft);
-      }
-
-      .metrics {
-        display: flex;
-        gap: 8px;
-        font-size: 0.75rem;
-      }
-
-      .metric {
-        padding: 2px 7px;
-        border-radius: 999px;
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(55, 65, 81, 0.9);
-      }
-
-      .status-dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 999px;
-        margin-right: 6px;
-        display: inline-block;
-      }
-
-      .status-ok {
-        background: var(--accent);
-      }
-
-      .status-warn {
-        background: #facc15;
-      }
-
-      .status-bad {
-        background: var(--danger);
-      }
+        :root {{
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a25;
+            --bg-hover: #222230;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-primary: #f59e0b;
+            --accent-secondary: #fbbf24;
+            --accent-gradient: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --border-color: rgba(148, 163, 184, 0.1);
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 0 40px rgba(245, 158, 11, 0.15);
+        }}
+        
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        
+        body {{
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }}
+        
+        .dashboard-container {{
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }}
+        
+        /* Header */
+        .header {{
+            margin-bottom: 2.5rem;
+            position: relative;
+        }}
+        
+        .header::before {{
+            content: '';
+            position: absolute;
+            top: -2rem;
+            left: -2rem;
+            right: -2rem;
+            height: 400px;
+            background: radial-gradient(ellipse at top, rgba(245, 158, 11, 0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }}
+        
+        .header-content {{ position: relative; z-index: 1; }}
+        
+        .header-title {{
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }}
+        
+        .header-subtitle {{
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }}
+        
+        /* Grid Layout */
+        .dashboard-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }}
+        
+        @media (max-width: 1024px) {{
+            .dashboard-grid {{ grid-template-columns: 1fr; }}
+        }}
+        
+        /* Section Cards */
+        .section-card {{
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            overflow: hidden;
+        }}
+        
+        .section-header {{
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }}
+        
+        .section-title {{
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }}
+        
+        .section-icon {{
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: var(--accent-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }}
+        
+        .live-indicator {{
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }}
+        
+        .live-dot {{
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }}
+        
+        @keyframes pulse {{
+            0%, 100% {{ opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }}
+            50% {{ opacity: 0.8; box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }}
+        }}
+        
+        .section-content {{ padding: 1.5rem; }}
+        
+        /* Queue Items */
+        .queue-list {{
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }}
+        
+        .queue-item {{
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: all 0.3s ease;
+        }}
+        
+        .queue-item:hover {{
+            transform: translateX(4px);
+            border-color: rgba(245, 158, 11, 0.3);
+        }}
+        
+        .queue-header {{
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }}
+        
+        .queue-icon {{
+            font-size: 1.75rem;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }}
+        
+        .queue-info {{ flex: 1; }}
+        
+        .queue-name {{
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 0.25rem;
+        }}
+        
+        .queue-backend {{
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }}
+        
+        .queue-status {{
+            padding: 0.375rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }}
+        
+        .queue-status.active {{ background: rgba(16, 185, 129, 0.2); color: var(--success); }}
+        .queue-status.error {{ background: rgba(239, 68, 68, 0.2); color: var(--error); }}
+        .queue-status.idle {{ background: rgba(148, 163, 184, 0.2); color: var(--text-secondary); }}
+        
+        /* Metrics Grid */
+        .metrics-grid {{
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+        }}
+        
+        .metric-box {{
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 0.75rem;
+            text-align: center;
+        }}
+        
+        .metric-value {{
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+        }}
+        
+        .metric-label {{
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }}
+        
+        /* Worker Cards */
+        .worker-list {{
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }}
+        
+        .worker-card {{
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }}
+        
+        .worker-header {{
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }}
+        
+        .worker-icon {{
+            font-size: 1.5rem;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-card);
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }}
+        
+        .worker-info {{ flex: 1; }}
+        
+        .worker-name {{
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }}
+        
+        .status-indicator {{
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }}
+        
+        .worker-stats {{
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+        }}
+        
+        .stat-item {{
+            text-align: center;
+            padding: 0.5rem;
+            background: var(--bg-card);
+            border-radius: 6px;
+        }}
+        
+        .stat-value {{
+            font-size: 1.25rem;
+            font-weight: 700;
+        }}
+        
+        .stat-label {{
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }}
+        
+        /* Empty State */
+        .empty-state {{
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+        }}
+        
+        .empty-icon {{
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }}
+        
+        /* Loading Animation */
+        .loading-skeleton {{
+            background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-hover) 50%, var(--bg-secondary) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 8px;
+            height: 80px;
+        }}
+        
+        @keyframes shimmer {{
+            0% {{ background-position: -200% 0; }}
+            100% {{ background-position: 200% 0; }}
+        }}
     </style>
-  </head>
-  <body>
-    <div class="shell">
-      <div class="content">
-        <div class="header">
-          <div class="header-main">
-            <div class="title">
-              Queues & Jobs
-              <span class="badge">Live system view</span>
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="header-title">⚡ Queues & Jobs</h1>
+                <p class="header-subtitle">Real-time monitoring of message queues and background workers</p>
             </div>
-            <div class="subtitle">
-              Inspect message backlogs and worker activity across RabbitMQ/SQS and Celery/RQ/Dramatiq.
+        </header>
+        
+        <div class="dashboard-grid">
+            <!-- Queues Section -->
+            <div class="section-card">
+                <div class="section-header">
+                    <div class="section-title">
+                        <div class="section-icon">📬</div>
+                        Message Queues
+                    </div>
+                    <div class="live-indicator">
+                        <div class="live-dot"></div>
+                        Live
+                    </div>
+                </div>
+                <div class="section-content">
+                    <div class="queue-list" id="queues-list">
+                        <div class="loading-skeleton"></div>
+                        <div class="loading-skeleton"></div>
+                    </div>
+                </div>
             </div>
-          </div>
+            
+            <!-- Workers Section -->
+            <div class="section-card">
+                <div class="section-header">
+                    <div class="section-title">
+                        <div class="section-icon">👷</div>
+                        Job Workers
+                    </div>
+                    <div class="live-indicator">
+                        <div class="live-dot"></div>
+                        Live
+                    </div>
+                </div>
+                <div class="section-content">
+                    <div class="worker-list" id="workers-list">
+                        <div class="loading-skeleton"></div>
+                        <div class="loading-skeleton"></div>
+                        <div class="loading-skeleton"></div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="grid">
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">Queues</div>
-              <div class="pill" id="queues-summary">Loading…</div>
-            </div>
-            <div class="list" id="queues-list"></div>
-          </div>
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">Workers & Jobs</div>
-              <div class="pill" id="jobs-summary">Loading…</div>
-            </div>
-            <div class="list" id="jobs-list"></div>
-          </div>
-        </div>
-      </div>
     </div>
+    
     <script>
-      async function loadState() {
-        try {
-          const res = await fetch(window.location.pathname + "/state");
-          const data = await res.json();
-          renderQueues(data.queues || []);
-          renderJobs(data.jobs || {});
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      function renderQueues(queues) {
-        const el = document.getElementById("queues-list");
-        const summary = document.getElementById("queues-summary");
-        el.innerHTML = "";
-        if (!queues.length) {
-          el.innerHTML = "<div class='queue-meta'>No queues configured.</div>";
-          summary.textContent = "0 backends";
-          return;
-        }
-        let totalMessages = 0;
-        queues.forEach((q) => {
-          totalMessages += q.messages || 0;
-          const row = document.createElement("div");
-          row.className = "queue-row";
-          const name = document.createElement("div");
-          name.innerHTML = "<span class='status-dot status-ok'></span>" + (q.backend || "queue");
-          const meta = document.createElement("div");
-          meta.className = "queue-meta";
-          meta.textContent = q.name || "";
-          const metrics = document.createElement("div");
-          metrics.className = "metrics";
-          metrics.innerHTML =
-            "<span class='metric'>msg: " + (q.messages ?? "–") + "</span>" +
-            "<span class='metric'>in-flight: " + (q.inFlight ?? "–") + "</span>" +
-            "<span class='metric'>delayed: " + (q.delayed ?? "–") + "</span>";
-          row.appendChild(name);
-          row.appendChild(meta);
-          row.appendChild(metrics);
-          el.appendChild(row);
-        });
-        summary.textContent = queues.length + " backends · " + totalMessages + " messages";
-      }
-
-      function renderJobs(jobs) {
-        const el = document.getElementById("jobs-list");
-        const summary = document.getElementById("jobs-summary");
-        el.innerHTML = "";
-        const entries = Object.entries(jobs);
-        if (!entries.length) {
-          el.innerHTML = "<div class='job-meta'>No workers configured.</div>";
-          summary.textContent = "0 workers";
-          return;
-        }
-        let totalActive = 0;
-        entries.forEach(([backend, info]) => {
-          const row = document.createElement("div");
-          row.className = "job-row";
-          const name = document.createElement("div");
-          name.innerHTML = "<span class='status-dot status-ok'></span>" + backend;
-          const meta = document.createElement("div");
-          meta.className = "job-meta";
-          if (backend === "celery") {
-            meta.textContent =
-              (info.enabled ? "enabled" : "disabled") +
-              " · workers: " +
-              (info.workers ?? "–") +
-              " · active: " +
-              (info.active ?? "–");
-            totalActive += info.active || 0;
-          } else if (backend === "rq") {
-            meta.textContent =
-              (info.enabled ? "enabled" : "disabled") +
-              " · queue: " +
-              (info.queueSize ?? "–") +
-              " · failed: " +
-              (info.failed ?? "–");
-          } else if (backend === "dramatiq") {
-            meta.textContent =
-              (info.enabled ? "enabled" : "disabled") + " · status: " + (info.status || "n/a");
-          }
-          const metrics = document.createElement("div");
-          metrics.className = "metrics";
-          row.appendChild(name);
-          row.appendChild(meta);
-          row.appendChild(metrics);
-          el.appendChild(row);
-        });
-        summary.textContent = entries.length + " workers · " + totalActive + " active";
-      }
-
-      loadState();
-      setInterval(loadState, 5000);
+        async function loadState() {{
+            try {{
+                const res = await fetch(window.location.pathname + '/state');
+                const data = await res.json();
+                renderQueues(data.queues || []);
+                renderWorkers(data.jobs || {{}});
+            }} catch (e) {{
+                console.error('Failed to load state:', e);
+            }}
+        }}
+        
+        function renderQueues(queues) {{
+            const container = document.getElementById('queues-list');
+            if (!queues.length) {{
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📭</div>
+                        <p>No queues configured</p>
+                    </div>
+                `;
+                return;
+            }}
+            
+            container.innerHTML = queues.map(q => {{
+                const hasError = q.error;
+                const statusClass = hasError ? 'error' : q.messages > 0 ? 'active' : 'idle';
+                const statusText = hasError ? 'Error' : q.messages > 0 ? 'Active' : 'Idle';
+                
+                return `
+                    <div class="queue-item">
+                        <div class="queue-header">
+                            <div class="queue-icon">${{q.icon || '📦'}}</div>
+                            <div class="queue-info">
+                                <div class="queue-name">${{q.name}}</div>
+                                <div class="queue-backend">${{q.backend}}</div>
+                            </div>
+                            <span class="queue-status ${{statusClass}}">${{statusText}}</span>
+                        </div>
+                        ${{hasError ? `<p style="color: var(--error); font-size: 0.875rem;">${{q.error}}</p>` : `
+                        <div class="metrics-grid">
+                            <div class="metric-box">
+                                <div class="metric-value">${{q.messages || 0}}</div>
+                                <div class="metric-label">Messages</div>
+                            </div>
+                            <div class="metric-box">
+                                <div class="metric-value">${{q.inFlight || 0}}</div>
+                                <div class="metric-label">In Flight</div>
+                            </div>
+                            <div class="metric-box">
+                                <div class="metric-value">${{q.delayed || 0}}</div>
+                                <div class="metric-label">Delayed</div>
+                            </div>
+                        </div>
+                        `}}
+                    </div>
+                `;
+            }}).join('');
+        }}
+        
+        function renderWorkers(jobs) {{
+            const container = document.getElementById('workers-list');
+            const workers = Object.entries(jobs);
+            
+            if (!workers.length) {{
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">😴</div>
+                        <p>No workers configured</p>
+                    </div>
+                `;
+                return;
+            }}
+            
+            container.innerHTML = workers.map(([name, info]) => {{
+                const statusColor = info.status === 'active' ? 'var(--success)' : info.status === 'error' ? 'var(--error)' : 'var(--text-muted)';
+                
+                let statsHtml = '';
+                if (name === 'celery') {{
+                    statsHtml = `
+                        <div class="stat-item"><div class="stat-value">${{info.workers || 0}}</div><div class="stat-label">Workers</div></div>
+                        <div class="stat-item"><div class="stat-value">${{info.active || 0}}</div><div class="stat-label">Active</div></div>
+                        <div class="stat-item"><div class="stat-value">${{info.enabled ? 'On' : 'Off'}}</div><div class="stat-label">Status</div></div>
+                    `;
+                }} else if (name === 'rq') {{
+                    statsHtml = `
+                        <div class="stat-item"><div class="stat-value">${{info.queueSize || 0}}</div><div class="stat-label">Queue</div></div>
+                        <div class="stat-item"><div class="stat-value">${{info.failed || 0}}</div><div class="stat-label">Failed</div></div>
+                        <div class="stat-item"><div class="stat-value">${{info.enabled ? 'On' : 'Off'}}</div><div class="stat-label">Status</div></div>
+                    `;
+                }} else {{
+                    statsHtml = `
+                        <div class="stat-item"><div class="stat-value">-</div><div class="stat-label">Queue</div></div>
+                        <div class="stat-item"><div class="stat-value">-</div><div class="stat-label">Failed</div></div>
+                        <div class="stat-item"><div class="stat-value">${{info.enabled ? 'On' : 'Off'}}</div><div class="stat-label">Status</div></div>
+                    `;
+                }}
+                
+                return `
+                    <div class="worker-card">
+                        <div class="worker-header">
+                            <div class="worker-icon">${{info.icon || '⚙️'}}</div>
+                            <div class="worker-info">
+                                <div class="worker-name">
+                                    <span class="status-indicator" style="background: ${{statusColor}};"></span>
+                                    ${{name.charAt(0).toUpperCase() + name.slice(1)}}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="worker-stats">${{statsHtml}}</div>
+                    </div>
+                `;
+            }}).join('');
+        }}
+        
+        loadState();
+        setInterval(loadState, 5000);
     </script>
-  </body>
-</html>
-    """
-    )
+</body>
+</html>"""
     return HTMLResponse(content=html)
 
 
 @router.get("/state", response_class=JSONResponse, summary="Queues & jobs state")
 async def queues_state() -> JSONResponse:
-    """
-    Return JSON snapshot of queues and worker state for the dashboard UI.
-    """
-    q_cfg = QueuesConfiguration.instance().get_config()
+    """Return JSON snapshot of queues and worker state."""
+    q_cfg = _get_queues_config()
     queues: List[Dict[str, Any]] = []
 
-    rabbit_info = _inspect_rabbitmq(q_cfg.rabbitmq)
-    if rabbit_info is not None:
-        queues.append(rabbit_info)
-
-    sqs_info = _inspect_sqs(q_cfg.sqs)
-    if sqs_info is not None:
-        queues.append(sqs_info)
+    if q_cfg is not None:
+        rabbit_info = _inspect_rabbitmq(q_cfg.rabbitmq)
+        if rabbit_info is not None:
+            queues.append(rabbit_info)
+        sqs_info = _inspect_sqs(q_cfg.sqs)
+        if sqs_info is not None:
+            queues.append(sqs_info)
 
     jobs = _inspect_jobs()
     return JSONResponse({"queues": queues, "jobs": jobs})
 
 
-__all__ = [
-    "router",
-]
-
+__all__ = ["router"]

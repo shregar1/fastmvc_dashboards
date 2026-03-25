@@ -1,9 +1,15 @@
 """
 fast_dashboards – Dashboards extension for FastMVC.
 
-Requires the host app to provide: configurations.*, core.datastores,
-start_utils (db_session, redis_session), core.tenancy, services.secrets,
-services.workflows, and related modules. Use within a FastMVC application.
+This package provides dashboard routers for FastMVC applications. Dependencies
+on host app modules (configurations, core.datastores, start_utils, etc.) are
+resolved at runtime through a dependency registry pattern for loose coupling.
+
+To configure dependencies in your host app::
+
+    from fast_dashboards.core.registry import registry
+    from myapp.config import JobsConfiguration
+    registry.register_config("jobs", JobsConfiguration)
 
 Layout follows the shared taxonomy: ``core/``, ``integrations/``, ``operations/``, ``sec/``.
 

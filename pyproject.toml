@@ -21,7 +21,7 @@ Homepage = "https://github.com/your-org/fast_dashboards"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["tests/mocks", "src"]
 
 [tool.coverage.run]
 source = ["src"]

@@ -1,0 +1,1 @@
+"""Mock core.tenancy package."""
