@@ -65,50 +65,74 @@ async def api_dashboard() -> HTMLResponse:
         + """
     <style>
       :root {
-        --bg: #020617;
-        --bg-card: #020617;
-        --bg-card-alt: #0b1120;
-        --accent: #6366f1;
-        --accent-soft: rgba(99, 102, 241, 0.12);
+        --bg: #0a0a0b;
+        --surface: #141416;
+        --surface-raised: #1c1c1f;
+        --border: #27272a;
+        --border-hover: #3f3f46;
+        --text: #fafafa;
+        --text-secondary: #a1a1aa;
+        --text-muted: #71717a;
+        --accent: #e4e4e7;
         --success: #22c55e;
-        --danger: #ef4444;
-        --muted: #6b7280;
-        --text: #e5e7eb;
-        --text-soft: #9ca3af;
-        --radius-xl: 16px;
-        --shadow: 0 18px 45px rgba(15, 23, 42, 0.85);
+        --warning: #eab308;
+        --error: #ef4444;
+        --info: #3b82f6;
+        --method-get: #3b82f6;
+        --method-post: #22c55e;
+        --method-put: #eab308;
+        --method-delete: #ef4444;
+        --method-patch: #8b5cf6;
       }
 
-      * {
-        box-sizing: border-box;
+      [data-theme="light"] {
+        --bg: #fafafa;
+        --surface: #ffffff;
+        --surface-raised: #f4f4f5;
+        --border: #e4e4e7;
+        --border-hover: #d4d4d8;
+        --text: #18181b;
+        --text-secondary: #52525b;
+        --text-muted: #a1a1aa;
+        --accent: #18181b;
+        --success: #16a34a;
+        --warning: #ca8a04;
+        --error: #dc2626;
+        --info: #2563eb;
+        --method-get: #2563eb;
+        --method-post: #16a34a;
+        --method-put: #ca8a04;
+        --method-delete: #dc2626;
+        --method-patch: #7c3aed;
       }
 
-      body {
+      * { box-sizing: border-box; }
+
+      html, body {
         margin: 0;
         min-height: 100vh;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
-          "Segoe UI", sans-serif;
-        background: radial-gradient(circle at top, #1f2937 0, #020617 45%, #000 100%);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: var(--bg);
         color: var(--text);
+        transition: background 0.3s ease, color 0.3s ease;
+      }
+
+      .container {
+        min-height: 100vh;
         display: flex;
-        align-items: stretch;
+        align-items: center;
         justify-content: center;
         padding: 32px 16px;
       }
 
-      .shell {
+      .card {
         width: 100%;
         max-width: 1160px;
-        background: linear-gradient(140deg, rgba(148, 163, 184, 0.35), rgba(15, 23, 42, 0.95));
-        border-radius: 24px;
-        padding: 1px;
-        box-shadow: var(--shadow);
-      }
-
-      .content {
-        border-radius: 24px;
-        background: radial-gradient(circle at top left, rgba(148, 163, 184, 0.2), #020617 55%);
-        padding: 22px 24px 24px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 24px;
+        transition: all 0.3s ease;
       }
 
       .header {
@@ -116,7 +140,8 @@ async def api_dashboard() -> HTMLResponse:
         justify-content: space-between;
         align-items: center;
         gap: 16px;
-        margin-bottom: 18px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
       }
 
       .header-main {
@@ -127,8 +152,7 @@ async def api_dashboard() -> HTMLResponse:
 
       .title {
         font-size: 1.5rem;
-        font-weight: 650;
-        letter-spacing: 0.03em;
+        font-weight: 700;
         display: flex;
         align-items: center;
         gap: 10px;
@@ -136,18 +160,19 @@ async def api_dashboard() -> HTMLResponse:
 
       .subtitle {
         font-size: 0.92rem;
-        color: var(--text-soft);
+        color: var(--text-secondary);
       }
 
       .badge {
-        padding: 2px 9px;
-        border-radius: 999px;
+        padding: 4px 12px;
+        border-radius: 6px;
         font-size: 0.7rem;
         text-transform: uppercase;
         letter-spacing: 0.09em;
-        background: var(--accent-soft);
-        border: 1px solid rgba(129, 140, 248, 0.45);
-        color: var(--accent);
+        background: var(--surface-raised);
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        font-weight: 600;
       }
 
       .header-right {
@@ -158,15 +183,40 @@ async def api_dashboard() -> HTMLResponse:
       }
 
       .pill {
-        padding: 4px 9px;
-        border-radius: 999px;
+        padding: 4px 12px;
+        border-radius: 6px;
         font-size: 0.75rem;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        background: rgba(15, 23, 42, 0.85);
-        border: 1px solid rgba(148, 163, 184, 0.5);
-        color: var(--text-soft);
+        background: var(--surface-raised);
+        border: 1px solid var(--border);
+        color: var(--text-muted);
       }
+
+      .theme-toggle {
+        background: var(--surface-raised);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px;
+        cursor: pointer;
+        color: var(--text-secondary);
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .theme-toggle:hover {
+        background: var(--border);
+        border-color: var(--border-hover);
+        color: var(--text);
+      }
+
+      .theme-toggle svg { width: 18px; height: 18px; }
+      .theme-toggle .sun { display: none; }
+      .theme-toggle .moon { display: block; }
+      [data-theme="light"] .theme-toggle .sun { display: block; }
+      [data-theme="light"] .theme-toggle .moon { display: none; }
 
       .grid {
         display: grid;
@@ -174,21 +224,24 @@ async def api_dashboard() -> HTMLResponse:
         gap: 16px;
       }
 
-      .list-card,
-      .detail-card {
-        border-radius: var(--radius-xl);
-        background: linear-gradient(165deg, var(--bg-card-alt), var(--bg-card));
-        border: 1px solid rgba(148, 163, 184, 0.4);
-        padding: 12px 12px 10px;
-        box-shadow: 0 14px 28px rgba(15, 23, 42, 0.9);
+      @media (max-width: 900px) {
+        .grid { grid-template-columns: 1fr; }
+      }
+
+      .list-card, .detail-card {
+        background: var(--surface-raised);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px 12px;
         min-height: 220px;
+        transition: all 0.3s ease;
       }
 
       .list-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 8px;
+        margin-bottom: 12px;
       }
 
       .list-title {
@@ -196,49 +249,53 @@ async def api_dashboard() -> HTMLResponse:
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.08em;
+        color: var(--text);
       }
 
       .list-body {
         max-height: 360px;
         overflow-y: auto;
-        padding-right: 4px;
       }
 
       .endpoint-row {
         display: grid;
         grid-template-columns: auto 1fr auto;
         align-items: center;
-        gap: 8px;
-        padding: 7px 8px;
-        border-radius: 999px;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 8px;
         cursor: pointer;
-        transition: background 120ms ease, transform 120ms ease;
-        margin-bottom: 4px;
+        transition: all 0.15s ease;
+        margin-bottom: 6px;
+        background: var(--surface);
+        border: 1px solid var(--border);
       }
 
       .endpoint-row:hover {
-        background: rgba(15, 23, 42, 0.9);
+        border-color: var(--border-hover);
         transform: translateY(-1px);
       }
 
       .endpoint-row.active {
-        background: rgba(79, 70, 229, 0.25);
+        background: var(--surface);
+        border-color: var(--text-muted);
       }
 
       .method-pill {
-        padding: 2px 7px;
-        border-radius: 999px;
+        padding: 4px 8px;
+        border-radius: 6px;
         font-size: 0.7rem;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        border: 1px solid rgba(148, 163, 184, 0.6);
+        font-weight: 600;
+        font-family: ui-monospace, monospace;
       }
 
-      .method-get { color: #22c55e; border-color: rgba(34, 197, 94, 0.6); }
-      .method-post { color: #60a5fa; border-color: rgba(59, 130, 246, 0.7); }
-      .method-put { color: #facc15; border-color: rgba(250, 204, 21, 0.7); }
-      .method-patch { color: #f97316; border-color: rgba(249, 115, 22, 0.7); }
-      .method-delete { color: #f87171; border-color: rgba(248, 113, 113, 0.8); }
+      .method-get { background: var(--method-get); color: white; }
+      .method-post { background: var(--method-post); color: white; }
+      .method-put { background: var(--method-put); color: white; }
+      .method-patch { background: var(--method-patch); color: white; }
+      .method-delete { background: var(--method-delete); color: white; }
 
       .endpoint-main {
         display: flex;
@@ -249,35 +306,30 @@ async def api_dashboard() -> HTMLResponse:
       .endpoint-name {
         font-size: 0.86rem;
         font-weight: 500;
+        color: var(--text);
       }
 
       .endpoint-path {
         font-size: 0.78rem;
-        color: var(--text-soft);
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-          "Liberation Mono", "Courier New", monospace;
+        color: var(--text-muted);
+        font-family: ui-monospace, SFMono-Regular, monospace;
       }
 
       .status-dot {
         width: 8px;
         height: 8px;
-        border-radius: 999px;
-        background: rgba(148, 163, 184, 0.7);
+        border-radius: 50%;
+        background: var(--text-muted);
       }
 
-      .status-dot.ok {
-        background: var(--success);
-      }
-
-      .status-dot.error {
-        background: var(--danger);
-      }
+      .status-dot.ok { background: var(--success); }
+      .status-dot.error { background: var(--error); }
 
       .detail-title-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 4px;
+        margin-bottom: 12px;
       }
 
       .detail-title {
@@ -285,38 +337,39 @@ async def api_dashboard() -> HTMLResponse:
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.08em;
+        color: var(--text);
       }
 
       .badge-soft {
-        padding: 2px 8px;
-        font-size: 0.7rem;
-        border-radius: 999px;
-        background: rgba(15, 23, 42, 0.8);
-        border: 1px solid rgba(148, 163, 184, 0.4);
-        color: var(--text-soft);
+        padding: 4px 12px;
+        font-size: 0.75rem;
+        border-radius: 6px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
       }
 
       .detail-body {
         display: grid;
         grid-template-rows: auto 1fr auto;
-        gap: 8px;
+        gap: 12px;
       }
 
       .detail-meta {
-        font-size: 0.8rem;
-        color: var(--text-soft);
+        font-size: 0.875rem;
+        color: var(--text-secondary);
       }
 
       .code-block {
         position: relative;
-        background: rgba(15, 23, 42, 0.95);
-        border-radius: 10px;
-        padding: 8px 8px 8px;
-        font-size: 0.78rem;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-          "Liberation Mono", "Courier New", monospace;
-        color: #e5e7eb;
-        border: 1px solid rgba(30, 64, 175, 0.6);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 0.8rem;
+        font-family: ui-monospace, SFMono-Regular, monospace;
+        color: var(--text);
+        overflow: auto;
       }
 
       .code-block pre {
@@ -330,62 +383,69 @@ async def api_dashboard() -> HTMLResponse:
         justify-content: space-between;
         align-items: center;
         gap: 8px;
-        margin-top: 4px;
+        margin-top: 8px;
       }
 
       .btn {
         border: none;
         outline: none;
         cursor: pointer;
-        border-radius: 999px;
-        padding: 6px 12px;
-        font-size: 0.8rem;
-        font-weight: 500;
-        letter-spacing: 0.03em;
-        text-transform: uppercase;
-        background: linear-gradient(135deg, #4f46e5, #6366f1);
-        color: white;
-        box-shadow: 0 12px 25px rgba(79, 70, 229, 0.7);
-        transition: transform 100ms ease, box-shadow 100ms ease, opacity 80ms ease;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        background: var(--text);
+        color: var(--bg);
+        transition: all 0.15s ease;
       }
 
       .btn:disabled {
-        opacity: 0.6;
-        cursor: default;
-        box-shadow: none;
+        opacity: 0.5;
+        cursor: not-allowed;
       }
 
       .btn:hover:not(:disabled) {
-        transform: translateY(-1px);
-        box-shadow: 0 16px 32px rgba(79, 70, 229, 0.85);
+        background: var(--accent);
       }
 
       .status-text {
-        font-size: 0.78rem;
-        color: var(--text-soft);
+        font-size: 0.875rem;
+        color: var(--text-muted);
       }
 
-      .status-text.ok {
-        color: var(--success);
+      .status-text.ok { color: var(--success); }
+      .status-text.error { color: var(--error); }
+
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
       }
 
-      .status-text.error {
-        color: var(--danger);
+      ::-webkit-scrollbar-track {
+        background: var(--surface);
       }
 
-      @media (max-width: 900px) {
-        .grid {
-          grid-template-columns: minmax(0, 1fr);
-        }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 3px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--border-hover);
       }
     </style>
   </head>
   <body>
-    <div class="shell">
-      <div class="content">
+    <div class="container">
+      <div class="card">
         <header class="header">
           <div class="header-main">
             <div class="title">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text);">
+                <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+                <polyline points="12 22 12 15.5"/>
+                <polyline points="22 8.5 12 15.5 2 8.5"/>
+              </svg>
               API Activity
               <span class="badge">FastMVC dashboard</span>
             </div>
@@ -397,6 +457,22 @@ async def api_dashboard() -> HTMLResponse:
           <div class="header-right">
             <span class="pill">Mode: Dashboard</span>
             <span class="pill">Source: In-memory registry</span>
+            <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+              <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+              <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+            </button>
           </div>
         </header>
 
@@ -433,6 +509,21 @@ async def api_dashboard() -> HTMLResponse:
     </div>
 
     <script>
+      // Theme management
+      const themeToggle = document.getElementById('theme-toggle');
+      const html = document.documentElement;
+      
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      html.setAttribute('data-theme', savedTheme);
+      
+      themeToggle.addEventListener('click', () => {
+        const currentTheme = html.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+      });
+
+      // Dashboard functionality
       const endpointListEl = document.getElementById("endpoint-list");
       const endpointCountEl = document.getElementById("endpoint-count");
       const detailMetaEl = document.getElementById("detail-meta");
@@ -459,7 +550,7 @@ async def api_dashboard() -> HTMLResponse:
         endpointListEl.innerHTML = "";
         if (!endpoints.length) {
           endpointCountEl.textContent = "0 endpoints";
-          endpointListEl.innerHTML = '<div style="font-size:0.8rem;color:#9ca3af;">No endpoints registered yet. Import <code>register_endpoint_sample</code> in your controllers and register samples to see them here.</div>';
+          endpointListEl.innerHTML = '<div style="font-size:0.8rem;color:var(--text-muted);">No endpoints registered yet. Import <code>register_endpoint_sample</code> in your controllers and register samples to see them here.</div>';
           return;
         }
         endpointCountEl.textContent = endpoints.length + " endpoints";

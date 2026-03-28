@@ -196,31 +196,43 @@ async def secrets_dashboard() -> HTMLResponse:
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-card: #1a1a25;
-            --bg-hover: #222230;
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            --accent-primary: #f97316;
-            --accent-secondary: #fb923c;
-            --accent-gradient: linear-gradient(135deg, #f97316 0%, #fb923c 100%);
-            --success: #10b981;
-            --warning: #f59e0b;
+            --bg: #0a0a0b;
+            --surface: #141416;
+            --surface-raised: #1c1c1f;
+            --border: #27272a;
+            --border-hover: #3f3f46;
+            --text: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #e4e4e7;
+            --success: #22c55e;
+            --warning: #eab308;
             --error: #ef4444;
-            --border-color: rgba(148, 163, 184, 0.1);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-            --shadow-glow: 0 0 40px rgba(249, 115, 22, 0.15);
+        }
+
+        [data-theme="light"] {
+            --bg: #fafafa;
+            --surface: #ffffff;
+            --surface-raised: #f4f4f5;
+            --border: #e4e4e7;
+            --border-hover: #d4d4d8;
+            --text: #18181b;
+            --text-secondary: #52525b;
+            --text-muted: #a1a1aa;
+            --accent: #18181b;
+            --success: #16a34a;
+            --warning: #ca8a04;
+            --error: #dc2626;
         }
         
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
             font-family: 'Inter', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
+            transition: all 0.3s ease;
         }
         
         .dashboard-container {
@@ -232,17 +244,9 @@ async def secrets_dashboard() -> HTMLResponse:
         .header {
             margin-bottom: 2.5rem;
             position: relative;
-        }
-        
-        .header::before {
-            content: '';
-            position: absolute;
-            top: -2rem;
-            left: -2rem;
-            right: -2rem;
-            height: 400px;
-            background: radial-gradient(ellipse at top, rgba(249, 115, 22, 0.15) 0%, transparent 70%);
-            pointer-events: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
         }
         
         .header-content { position: relative; z-index: 1; }
@@ -250,9 +254,7 @@ async def secrets_dashboard() -> HTMLResponse:
         .header-title {
             font-size: 2.5rem;
             font-weight: 700;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--text);
             margin-bottom: 0.5rem;
             display: flex;
             align-items: center;
@@ -263,6 +265,31 @@ async def secrets_dashboard() -> HTMLResponse:
             color: var(--text-secondary);
             font-size: 1.1rem;
         }
+        
+        .theme-toggle {
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
+            color: var(--text);
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        
+        .theme-toggle:hover {
+            background: var(--border);
+            border-color: var(--border-hover);
+        }
+        
+        .theme-toggle svg { width: 18px; height: 18px; }
+        .theme-toggle .sun { display: none; }
+        .theme-toggle .moon { display: block; }
+        [data-theme="light"] .theme-toggle .sun { display: block; }
+        [data-theme="light"] .theme-toggle .moon { display: none; }
         
         .dashboard-grid {
             display: grid;
@@ -275,15 +302,16 @@ async def secrets_dashboard() -> HTMLResponse:
         }
         
         .section-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 20px;
             overflow: hidden;
+            transition: all 0.3s ease;
         }
         
         .section-header {
             padding: 1.5rem;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -301,7 +329,8 @@ async def secrets_dashboard() -> HTMLResponse:
             width: 40px;
             height: 40px;
             border-radius: 12px;
-            background: var(--accent-gradient);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -318,8 +347,8 @@ async def secrets_dashboard() -> HTMLResponse:
         }
         
         .backend-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             border-radius: 16px;
             padding: 1.25rem;
             transition: all 0.3s ease;
@@ -341,8 +370,7 @@ async def secrets_dashboard() -> HTMLResponse:
         .backend-card.enabled::before { background: var(--success); }
         .backend-card:hover {
             transform: translateY(-4px);
-            border-color: rgba(249, 115, 22, 0.3);
-            box-shadow: var(--shadow-glow);
+            border-color: var(--border-hover);
         }
         
         .backend-header {
@@ -359,9 +387,9 @@ async def secrets_dashboard() -> HTMLResponse:
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--bg-card);
+            background: var(--surface);
             border-radius: 12px;
-            border: 1px solid var(--border-color);
+            border: 1px solid var(--border);
         }
         
         .backend-info { flex: 1; }
@@ -370,6 +398,7 @@ async def secrets_dashboard() -> HTMLResponse:
             font-weight: 600;
             font-size: 1rem;
             margin-bottom: 0.25rem;
+            color: var(--text);
         }
         
         .backend-type {
@@ -388,12 +417,12 @@ async def secrets_dashboard() -> HTMLResponse:
         }
         
         .backend-status.enabled {
-            background: rgba(16, 185, 129, 0.2);
+            background: rgba(34, 197, 94, 0.15);
             color: var(--success);
         }
         
         .backend-status.disabled {
-            background: rgba(148, 163, 184, 0.2);
+            background: rgba(113, 113, 122, 0.15);
             color: var(--text-muted);
         }
         
@@ -405,8 +434,8 @@ async def secrets_dashboard() -> HTMLResponse:
         
         /* Health Card */
         .health-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             border-radius: 16px;
             padding: 1.5rem;
             text-align: center;
@@ -421,6 +450,7 @@ async def secrets_dashboard() -> HTMLResponse:
             font-size: 1.25rem;
             font-weight: 600;
             margin-bottom: 0.5rem;
+            color: var(--text);
         }
         
         .health-message {
@@ -430,8 +460,8 @@ async def secrets_dashboard() -> HTMLResponse:
         
         /* Env Card */
         .env-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             border-radius: 16px;
             padding: 1.5rem;
         }
@@ -449,6 +479,7 @@ async def secrets_dashboard() -> HTMLResponse:
         
         .env-title {
             font-weight: 600;
+            color: var(--text);
         }
         
         .env-stats {
@@ -461,14 +492,14 @@ async def secrets_dashboard() -> HTMLResponse:
         .env-stat {
             text-align: center;
             padding: 1rem;
-            background: var(--bg-card);
+            background: var(--surface);
             border-radius: 12px;
         }
         
         .env-value {
             font-size: 1.5rem;
             font-weight: 700;
-            color: var(--accent-primary);
+            color: var(--accent);
         }
         
         .env-label {
@@ -479,14 +510,14 @@ async def secrets_dashboard() -> HTMLResponse:
         
         .env-bar {
             height: 6px;
-            background: var(--bg-card);
+            background: var(--surface);
             border-radius: 3px;
             overflow: hidden;
         }
         
         .env-progress {
             height: 100%;
-            background: var(--accent-gradient);
+            background: var(--accent);
             border-radius: 3px;
             transition: width 0.5s ease;
         }
@@ -506,16 +537,17 @@ async def secrets_dashboard() -> HTMLResponse:
         
         /* Skeleton */
         .skeleton {
-            background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-hover) 50%, var(--bg-secondary) 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             border-radius: 8px;
+            animation: pulse 1.5s infinite;
         }
         
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
+        
     </style>
 </head>
 <body>
@@ -525,6 +557,22 @@ async def secrets_dashboard() -> HTMLResponse:
                 <h1 class="header-title">🔐 Secrets & Config</h1>
                 <p class="header-subtitle">Manage secrets backends and environment configuration</p>
             </div>
+            <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+                <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+            </button>
         </header>
         
         <div class="dashboard-grid">
@@ -582,6 +630,20 @@ async def secrets_dashboard() -> HTMLResponse:
     </div>
     
     <script>
+        // Theme management
+        const themeToggle = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+        
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        html.setAttribute('data-theme', savedTheme);
+        
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        });
+        
         async function loadState() {
             try {
                 const res = await fetch(window.location.pathname + '/state');

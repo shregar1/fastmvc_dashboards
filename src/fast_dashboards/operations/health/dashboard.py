@@ -79,7 +79,7 @@ def _check_postgres() -> Dict[str, Any]:
         db_session.execute(text("SELECT 1"))
         status = "healthy"
         message = "Connected"
-        color = "#10b981"
+        color = "#22c55e"
     except Exception as exc:
         logger.error(f"PostgreSQL health check failed: {exc}")
         status = "unhealthy"
@@ -123,7 +123,7 @@ def _check_redis() -> Dict[str, Any]:
         if redis_session.ping():
             status = "healthy"
             message = "Connected"
-            color = "#10b981"
+            color = "#22c55e"
         else:
             status = "unhealthy"
             message = "Ping failed"
@@ -191,7 +191,7 @@ def _check_mongo() -> Dict[str, Any]:
             "status": "healthy",
             "message": "Connected",
             "icon": icon,
-            "color": "#10b981",
+            "color": "#22c55e",
         }
     except Exception as exc:
         logger.error(f"MongoDB health check failed: {exc}")
@@ -255,7 +255,7 @@ def _check_cassandra() -> Dict[str, Any]:
             "status": "healthy",
             "message": "Connected",
             "icon": icon,
-            "color": "#10b981",
+            "color": "#22c55e",
         }
     except Exception as exc:
         logger.error(f"Cassandra health check failed: {exc}")
@@ -317,7 +317,7 @@ def _check_scylla() -> Dict[str, Any]:
             "status": "healthy",
             "message": "Connected",
             "icon": icon,
-            "color": "#10b981",
+            "color": "#22c55e",
         }
     except Exception as exc:
         logger.error(f"ScyllaDB health check failed: {exc}")
@@ -377,7 +377,7 @@ def _check_dynamo() -> Dict[str, Any]:
             "status": "healthy",
             "message": f"Region: {os.getenv('DYNAMO_REGION', 'us-east-1')}",
             "icon": icon,
-            "color": "#10b981",
+            "color": "#22c55e",
         }
     except Exception as exc:
         logger.error(f"DynamoDB health check failed: {exc}")
@@ -439,7 +439,7 @@ def _check_cosmos() -> Dict[str, Any]:
             "status": "healthy",
             "message": "Connected",
             "icon": icon,
-            "color": "#10b981",
+            "color": "#22c55e",
         }
     except Exception as exc:
         logger.error(f"Cosmos DB health check failed: {exc}")
@@ -503,7 +503,7 @@ def _check_elasticsearch() -> Dict[str, Any]:
         store.disconnect()
         status = "healthy" if healthy else "unhealthy"
         message = "Connected" if healthy else "Ping failed"
-        color = "#10b981" if healthy else "#ef4444"
+        color = "#22c55e" if healthy else "#ef4444"
         return {
             "name": "Elasticsearch",
             "key": "elasticsearch",
@@ -588,7 +588,7 @@ async def health_dashboard() -> HTMLResponse:
     service_cards = []
     for svc in services:
         pulse_animation = "pulse-animation" if svc["status"] == "healthy" else ""
-        status_dot = f'<span class="status-dot {pulse_animation}" style="background: {svc["color"]}; box-shadow: 0 0 12px {svc["color"]};"></span>'
+        status_dot = f'<span class="status-dot {pulse_animation}" style="background: {svc["color"]};"></span>'
         card_html = f"""
         <div class="service-card" data-status="{svc["status"]}">
             <div class="service-header">
@@ -620,24 +620,33 @@ async def health_dashboard() -> HTMLResponse:
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {{
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-card: #1a1a25;
-            --bg-hover: #222230;
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            --accent-primary: #6366f1;
-            --accent-secondary: #8b5cf6;
-            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
-            --success: #10b981;
-            --warning: #f59e0b;
+            --bg: #0a0a0b;
+            --surface: #141416;
+            --surface-raised: #1c1c1f;
+            --border: #27272a;
+            --border-hover: #3f3f46;
+            --text: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #e4e4e7;
+            --success: #22c55e;
+            --warning: #eab308;
             --error: #ef4444;
-            --border-color: rgba(148, 163, 184, 0.1);
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-            --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.15);
+        }}
+        
+        [data-theme="light"] {{
+            --bg: #fafafa;
+            --surface: #ffffff;
+            --surface-raised: #f4f4f5;
+            --border: #e4e4e7;
+            --border-hover: #d4d4d8;
+            --text: #18181b;
+            --text-secondary: #52525b;
+            --text-muted: #a1a1aa;
+            --accent: #18181b;
+            --success: #16a34a;
+            --warning: #ca8a04;
+            --error: #dc2626;
         }}
         
         * {{
@@ -646,12 +655,13 @@ async def health_dashboard() -> HTMLResponse:
             box-sizing: border-box;
         }}
         
-        body {{
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
+        html, body {{
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
             line-height: 1.6;
+            transition: background 0.3s ease, color 0.3s ease;
         }}
         
         .dashboard-container {{
@@ -663,50 +673,68 @@ async def health_dashboard() -> HTMLResponse:
         /* Header */
         .header {{
             margin-bottom: 2.5rem;
-            position: relative;
-        }}
-        
-        .header::before {{
-            content: '';
-            position: absolute;
-            top: -2rem;
-            left: -2rem;
-            right: -2rem;
-            height: 400px;
-            background: radial-gradient(ellipse at top, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            flex-wrap: wrap;
         }}
         
         .header-content {{
-            position: relative;
-            z-index: 1;
+            flex: 1;
         }}
         
         .header-title {{
-            font-size: 2.5rem;
+            font-size: 2rem;
             font-weight: 700;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: var(--text);
             margin-bottom: 0.5rem;
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 0.75rem;
         }}
         
-        .header-title::before {{
-            content: '◆';
-            font-size: 1.5rem;
-            -webkit-text-fill-color: #6366f1;
+        .header-title svg {{
+            width: 32px;
+            height: 32px;
+            color: var(--text);
         }}
         
         .header-subtitle {{
             color: var(--text-secondary);
-            font-size: 1.1rem;
+            font-size: 1rem;
             max-width: 600px;
         }}
+        
+        /* Theme Toggle */
+        .theme-toggle {{
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        
+        .theme-toggle:hover {{
+            background: var(--border);
+            border-color: var(--border-hover);
+            color: var(--text);
+        }}
+        
+        .theme-toggle svg {{
+            width: 20px;
+            height: 20px;
+        }}
+        
+        .theme-toggle .sun {{ display: none; }}
+        .theme-toggle .moon {{ display: block; }}
+        [data-theme="light"] .theme-toggle .sun {{ display: block; }}
+        [data-theme="light"] .theme-toggle .moon {{ display: none; }}
         
         /* Summary Cards */
         .summary-section {{
@@ -717,28 +745,25 @@ async def health_dashboard() -> HTMLResponse:
         }}
         
         .summary-card {{
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
             padding: 1.5rem;
-            position: relative;
-            overflow: hidden;
             transition: all 0.3s ease;
         }}
         
         .summary-card:hover {{
+            border-color: var(--border-hover);
             transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
         }}
         
         .summary-card::before {{
             content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
+            display: block;
             height: 3px;
-            background: var(--accent-gradient);
+            background: var(--border);
+            border-radius: 3px;
+            margin-bottom: 1rem;
         }}
         
         .summary-card.critical::before {{ background: var(--error); }}
@@ -749,6 +774,7 @@ async def health_dashboard() -> HTMLResponse:
             font-size: 2.5rem;
             font-weight: 700;
             margin-bottom: 0.25rem;
+            color: var(--text);
         }}
         
         .summary-label {{
@@ -770,9 +796,9 @@ async def health_dashboard() -> HTMLResponse:
         }}
         
         .service-card {{
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
             padding: 1.5rem;
             transition: all 0.3s ease;
             position: relative;
@@ -795,9 +821,8 @@ async def health_dashboard() -> HTMLResponse:
         .service-card[data-status="skipped"]::before {{ background: var(--text-muted); }}
         
         .service-card:hover {{
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-lg), var(--shadow-glow);
-            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateY(-2px);
+            border-color: var(--border-hover);
         }}
         
         .service-header {{
@@ -814,9 +839,9 @@ async def health_dashboard() -> HTMLResponse:
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
+            background: var(--surface-raised);
+            border-radius: 10px;
+            border: 1px solid var(--border);
         }}
         
         .service-info {{
@@ -827,12 +852,13 @@ async def health_dashboard() -> HTMLResponse:
             font-size: 1.1rem;
             font-weight: 600;
             margin-bottom: 0.25rem;
+            color: var(--text);
         }}
         
         .service-key {{
             font-size: 0.75rem;
             color: var(--text-muted);
-            font-family: 'Monaco', 'Consolas', monospace;
+            font-family: ui-monospace, monospace;
             text-transform: lowercase;
         }}
         
@@ -859,7 +885,7 @@ async def health_dashboard() -> HTMLResponse:
         .status-badge {{
             display: inline-block;
             padding: 0.375rem 0.75rem;
-            border-radius: 20px;
+            border-radius: 6px;
             font-size: 0.75rem;
             font-weight: 600;
             text-transform: uppercase;
@@ -883,7 +909,8 @@ async def health_dashboard() -> HTMLResponse:
             font-size: 0.75rem;
             color: var(--text-muted);
             padding: 0.25rem 0.5rem;
-            background: var(--bg-secondary);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             border-radius: 4px;
         }}
         
@@ -896,25 +923,43 @@ async def health_dashboard() -> HTMLResponse:
             align-items: center;
             gap: 0.75rem;
             padding: 0.75rem 1.25rem;
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 50px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
             font-size: 0.875rem;
             color: var(--text-secondary);
-            box-shadow: var(--shadow-lg);
         }}
         
         .refresh-spinner {{
             width: 16px;
             height: 16px;
-            border: 2px solid var(--border-color);
-            border-top-color: var(--accent-primary);
+            border: 2px solid var(--border);
+            border-top-color: var(--text-secondary);
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }}
         
         @keyframes spin {{
             to {{ transform: rotate(360deg); }}
+        }}
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {{
+            width: 8px;
+            height: 8px;
+        }}
+        
+        ::-webkit-scrollbar-track {{
+            background: var(--bg);
+        }}
+        
+        ::-webkit-scrollbar-thumb {{
+            background: var(--border);
+            border-radius: 4px;
+        }}
+        
+        ::-webkit-scrollbar-thumb:hover {{
+            background: var(--border-hover);
         }}
         
         /* Responsive */
@@ -924,7 +969,7 @@ async def health_dashboard() -> HTMLResponse:
             }}
             
             .header-title {{
-                font-size: 1.75rem;
+                font-size: 1.5rem;
             }}
             
             .services-grid {{
@@ -937,9 +982,32 @@ async def health_dashboard() -> HTMLResponse:
     <div class="dashboard-container">
         <header class="header">
             <div class="header-content">
-                <h1 class="header-title">Service Health</h1>
+                <h1 class="header-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+                        <polyline points="12 22 12 15.5"/>
+                        <polyline points="22 8.5 12 15.5 2 8.5"/>
+                    </svg>
+                    Service Health
+                </h1>
                 <p class="header-subtitle">Real-time monitoring of your infrastructure services and datastores</p>
             </div>
+            <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+                <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+            </button>
         </header>
         
         <section class="summary-section">
@@ -962,7 +1030,7 @@ async def health_dashboard() -> HTMLResponse:
         </section>
         
         <div class="services-grid">
-            {"".join(service_cards)}
+            {"" .join(service_cards)}
         </div>
     </div>
     
@@ -972,6 +1040,20 @@ async def health_dashboard() -> HTMLResponse:
     </div>
     
     <script>
+        // Theme management
+        const themeToggle = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+        
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        html.setAttribute('data-theme', savedTheme);
+        
+        themeToggle.addEventListener('click', () => {{
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }});
+        
         // Auto-refresh every 10 seconds
         setInterval(() => {{
             fetch(window.location.pathname)

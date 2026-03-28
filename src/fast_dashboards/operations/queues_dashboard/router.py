@@ -261,33 +261,43 @@ async def queues_dashboard() -> HTMLResponse:
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {{
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-card: #1a1a25;
-            --bg-hover: #222230;
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            --accent-primary: #f59e0b;
-            --accent-secondary: #fbbf24;
-            --accent-gradient: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
-            --success: #10b981;
-            --warning: #f59e0b;
+            --bg: #0a0a0b;
+            --surface: #141416;
+            --surface-raised: #1c1c1f;
+            --border: #27272a;
+            --border-hover: #3f3f46;
+            --text: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #e4e4e7;
+            --success: #22c55e;
+            --warning: #eab308;
             --error: #ef4444;
-            --border-color: rgba(148, 163, 184, 0.1);
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-            --shadow-glow: 0 0 40px rgba(245, 158, 11, 0.15);
+        }}
+
+        [data-theme="light"] {{
+            --bg: #fafafa;
+            --surface: #ffffff;
+            --surface-raised: #f4f4f5;
+            --border: #e4e4e7;
+            --border-hover: #d4d4d8;
+            --text: #18181b;
+            --text-secondary: #52525b;
+            --text-muted: #a1a1aa;
+            --accent: #18181b;
+            --success: #16a34a;
+            --warning: #ca8a04;
+            --error: #dc2626;
         }}
         
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         
         body {{
             font-family: 'Inter', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
+            transition: all 0.3s ease;
         }}
         
         .dashboard-container {{
@@ -302,35 +312,64 @@ async def queues_dashboard() -> HTMLResponse:
             position: relative;
         }}
         
-        .header::before {{
-            content: '';
-            position: absolute;
-            top: -2rem;
-            left: -2rem;
-            right: -2rem;
-            height: 400px;
-            background: radial-gradient(ellipse at top, rgba(245, 158, 11, 0.15) 0%, transparent 70%);
-            pointer-events: none;
+        .header-content {{ 
+            position: relative; 
+            z-index: 1; 
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
         }}
-        
-        .header-content {{ position: relative; z-index: 1; }}
+
+        .header-title-group {{
+            flex: 1;
+        }}
         
         .header-title {{
             font-size: 2.5rem;
             font-weight: 700;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--text);
             margin-bottom: 0.5rem;
             display: flex;
             align-items: center;
             gap: 1rem;
+            transition: all 0.3s ease;
         }}
         
         .header-subtitle {{
             color: var(--text-secondary);
             font-size: 1.1rem;
+            transition: all 0.3s ease;
         }}
+
+        /* Theme Toggle */
+        .theme-toggle {{
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.6rem;
+            cursor: pointer;
+            color: var(--text);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+
+        .theme-toggle:hover {{
+            border-color: var(--border-hover);
+            background: var(--surface);
+        }}
+
+        .theme-toggle svg {{
+            width: 20px;
+            height: 20px;
+        }}
+
+        .theme-toggle .sun-icon {{ display: none; }}
+        .theme-toggle .moon-icon {{ display: block; }}
+
+        [data-theme="light"] .theme-toggle .sun-icon {{ display: block; }}
+        [data-theme="light"] .theme-toggle .moon-icon {{ display: none; }}
         
         /* Grid Layout */
         .dashboard-grid {{
@@ -345,18 +384,24 @@ async def queues_dashboard() -> HTMLResponse:
         
         /* Section Cards */
         .section-card {{
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 20px;
             overflow: hidden;
+            transition: all 0.3s ease;
+        }}
+
+        .section-card:hover {{
+            border-color: var(--border-hover);
         }}
         
         .section-header {{
             padding: 1.5rem;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: space-between;
+            transition: all 0.3s ease;
         }}
         
         .section-title {{
@@ -365,17 +410,21 @@ async def queues_dashboard() -> HTMLResponse:
             gap: 0.75rem;
             font-size: 1.25rem;
             font-weight: 600;
+            color: var(--text);
+            transition: all 0.3s ease;
         }}
         
         .section-icon {{
             width: 40px;
             height: 40px;
             border-radius: 12px;
-            background: var(--accent-gradient);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.25rem;
+            transition: all 0.3s ease;
         }}
         
         .live-indicator {{
@@ -386,6 +435,7 @@ async def queues_dashboard() -> HTMLResponse:
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            transition: all 0.3s ease;
         }}
         
         .live-dot {{
@@ -397,8 +447,8 @@ async def queues_dashboard() -> HTMLResponse:
         }}
         
         @keyframes pulse {{
-            0%, 100% {{ opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }}
-            50% {{ opacity: 0.8; box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }}
+            0%, 100% {{ opacity: 1; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }}
+            50% {{ opacity: 0.8; box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }}
         }}
         
         .section-content {{ padding: 1.5rem; }}
@@ -411,8 +461,8 @@ async def queues_dashboard() -> HTMLResponse:
         }}
         
         .queue-item {{
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 1.25rem;
             transition: all 0.3s ease;
@@ -420,7 +470,7 @@ async def queues_dashboard() -> HTMLResponse:
         
         .queue-item:hover {{
             transform: translateX(4px);
-            border-color: rgba(245, 158, 11, 0.3);
+            border-color: var(--border-hover);
         }}
         
         .queue-header {{
@@ -437,9 +487,10 @@ async def queues_dashboard() -> HTMLResponse:
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--bg-card);
+            background: var(--surface);
             border-radius: 12px;
-            border: 1px solid var(--border-color);
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
         }}
         
         .queue-info {{ flex: 1; }}
@@ -448,6 +499,8 @@ async def queues_dashboard() -> HTMLResponse:
             font-weight: 600;
             font-size: 1rem;
             margin-bottom: 0.25rem;
+            color: var(--text);
+            transition: all 0.3s ease;
         }}
         
         .queue-backend {{
@@ -455,6 +508,7 @@ async def queues_dashboard() -> HTMLResponse:
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            transition: all 0.3s ease;
         }}
         
         .queue-status {{
@@ -463,11 +517,12 @@ async def queues_dashboard() -> HTMLResponse:
             font-size: 0.75rem;
             font-weight: 600;
             text-transform: uppercase;
+            transition: all 0.3s ease;
         }}
         
-        .queue-status.active {{ background: rgba(16, 185, 129, 0.2); color: var(--success); }}
-        .queue-status.error {{ background: rgba(239, 68, 68, 0.2); color: var(--error); }}
-        .queue-status.idle {{ background: rgba(148, 163, 184, 0.2); color: var(--text-secondary); }}
+        .queue-status.active {{ background: rgba(34, 197, 94, 0.15); color: var(--success); }}
+        .queue-status.error {{ background: rgba(239, 68, 68, 0.15); color: var(--error); }}
+        .queue-status.idle {{ background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border); }}
         
         /* Metrics Grid */
         .metrics-grid {{
@@ -477,22 +532,26 @@ async def queues_dashboard() -> HTMLResponse:
         }}
         
         .metric-box {{
-            background: var(--bg-card);
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 8px;
             padding: 0.75rem;
             text-align: center;
+            transition: all 0.3s ease;
         }}
         
         .metric-value {{
             font-size: 1.5rem;
             font-weight: 700;
-            color: var(--accent-primary);
+            color: var(--text);
+            transition: all 0.3s ease;
         }}
         
         .metric-label {{
             font-size: 0.7rem;
             color: var(--text-muted);
             text-transform: uppercase;
+            transition: all 0.3s ease;
         }}
         
         /* Worker Cards */
@@ -503,10 +562,15 @@ async def queues_dashboard() -> HTMLResponse:
         }}
         
         .worker-card {{
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 1.25rem;
+            transition: all 0.3s ease;
+        }}
+
+        .worker-card:hover {{
+            border-color: var(--border-hover);
         }}
         
         .worker-header {{
@@ -523,9 +587,10 @@ async def queues_dashboard() -> HTMLResponse:
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--bg-card);
+            background: var(--surface);
             border-radius: 10px;
-            border: 1px solid var(--border-color);
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
         }}
         
         .worker-info {{ flex: 1; }}
@@ -535,6 +600,8 @@ async def queues_dashboard() -> HTMLResponse:
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            color: var(--text);
+            transition: all 0.3s ease;
         }}
         
         .status-indicator {{
@@ -552,19 +619,24 @@ async def queues_dashboard() -> HTMLResponse:
         .stat-item {{
             text-align: center;
             padding: 0.5rem;
-            background: var(--bg-card);
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 6px;
+            transition: all 0.3s ease;
         }}
         
         .stat-value {{
             font-size: 1.25rem;
             font-weight: 700;
+            color: var(--text);
+            transition: all 0.3s ease;
         }}
         
         .stat-label {{
             font-size: 0.65rem;
             color: var(--text-muted);
             text-transform: uppercase;
+            transition: all 0.3s ease;
         }}
         
         /* Empty State */
@@ -572,6 +644,7 @@ async def queues_dashboard() -> HTMLResponse:
             text-align: center;
             padding: 3rem;
             color: var(--text-muted);
+            transition: all 0.3s ease;
         }}
         
         .empty-icon {{
@@ -582,11 +655,14 @@ async def queues_dashboard() -> HTMLResponse:
         
         /* Loading Animation */
         .loading-skeleton {{
-            background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-hover) 50%, var(--bg-secondary) 75%);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
+            background-image: linear-gradient(90deg, var(--surface-raised) 25%, var(--surface) 50%, var(--surface-raised) 75%);
             background-size: 200% 100%;
             animation: shimmer 1.5s infinite;
             border-radius: 8px;
             height: 80px;
+            transition: all 0.3s ease;
         }}
         
         @keyframes shimmer {{
@@ -599,8 +675,18 @@ async def queues_dashboard() -> HTMLResponse:
     <div class="dashboard-container">
         <header class="header">
             <div class="header-content">
-                <h1 class="header-title">⚡ Queues & Jobs</h1>
-                <p class="header-subtitle">Real-time monitoring of message queues and background workers</p>
+                <div class="header-title-group">
+                    <h1 class="header-title">⚡ Queues & Jobs</h1>
+                    <p class="header-subtitle">Real-time monitoring of message queues and background workers</p>
+                </div>
+                <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                </button>
             </div>
         </header>
         
@@ -649,6 +735,24 @@ async def queues_dashboard() -> HTMLResponse:
     </div>
     
     <script>
+        // Theme management
+        const themeToggle = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+        
+        const savedTheme = localStorage.getItem('queues-dashboard-theme');
+        if (savedTheme) {{
+            html.setAttribute('data-theme', savedTheme);
+        }} else if (window.matchMedia('(prefers-color-scheme: light)').matches) {{
+            html.setAttribute('data-theme', 'light');
+        }}
+        
+        themeToggle.addEventListener('click', () => {{
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('queues-dashboard-theme', newTheme);
+        }});
+        
         async function loadState() {{
             try {{
                 const res = await fetch(window.location.pathname + '/state');

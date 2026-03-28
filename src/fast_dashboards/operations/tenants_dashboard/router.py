@@ -156,33 +156,41 @@ async def tenants_dashboard() -> HTMLResponse:
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {{
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-card: #1a1a25;
-            --bg-hover: #222230;
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            --accent-primary: #8b5cf6;
-            --accent-secondary: #a855f7;
-            --accent-gradient: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
-            --success: #10b981;
-            --warning: #f59e0b;
+            --bg: #0a0a0b;
+            --surface: #141416;
+            --surface-raised: #1c1c1f;
+            --border: #27272a;
+            --border-hover: #3f3f46;
+            --text: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #e4e4e7;
+            --success: #22c55e;
+            --warning: #eab308;
             --error: #ef4444;
-            --info: #3b82f6;
-            --border-color: rgba(148, 163, 184, 0.1);
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-            --shadow-glow: 0 0 40px rgba(139, 92, 246, 0.15);
+        }}
+
+        [data-theme="light"] {{
+            --bg: #fafafa;
+            --surface: #ffffff;
+            --surface-raised: #f4f4f5;
+            --border: #e4e4e7;
+            --border-hover: #d4d4d8;
+            --text: #18181b;
+            --text-secondary: #52525b;
+            --text-muted: #a1a1aa;
+            --accent: #18181b;
+            --success: #16a34a;
+            --warning: #ca8a04;
+            --error: #dc2626;
         }}
         
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        * {{ margin: 0; padding: 0; box-sizing: border-box; transition: all 0.3s ease; }}
         
         body {{
             font-family: 'Inter', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
         }}
         
@@ -198,25 +206,22 @@ async def tenants_dashboard() -> HTMLResponse:
             position: relative;
         }}
         
-        .header::before {{
-            content: '';
-            position: absolute;
-            top: -2rem;
-            left: -2rem;
-            right: -2rem;
-            height: 400px;
-            background: radial-gradient(ellipse at top, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
-            pointer-events: none;
+        .header-content {{
+            position: relative;
+            z-index: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
         }}
         
-        .header-content {{ position: relative; z-index: 1; }}
+        .header-title-group {{
+            flex: 1;
+        }}
         
         .header-title {{
             font-size: 2.5rem;
             font-weight: 700;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--text);
             margin-bottom: 0.5rem;
             display: flex;
             align-items: center;
@@ -227,6 +232,33 @@ async def tenants_dashboard() -> HTMLResponse:
             color: var(--text-secondary);
             font-size: 1.1rem;
         }}
+        
+        /* Theme Toggle */
+        .theme-toggle {{
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0.75rem;
+            cursor: pointer;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }}
+        
+        .theme-toggle:hover {{
+            border-color: var(--border-hover);
+            background: var(--surface-raised);
+        }}
+        
+        .theme-toggle svg {{
+            width: 20px;
+            height: 20px;
+        }}
+        
+        [data-theme="light"] .theme-toggle .moon-icon {{ display: none; }}
+        [data-theme="dark"] .theme-toggle .sun-icon {{ display: none; }}
         
         /* Grid Layout */
         .dashboard-grid {{
@@ -241,12 +273,13 @@ async def tenants_dashboard() -> HTMLResponse:
         
         @media (max-width: 768px) {{
             .dashboard-grid {{ grid-template-columns: 1fr; }}
+            .header-content {{ flex-direction: column; gap: 1rem; }}
         }}
         
         /* Section Cards */
         .section-card {{
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 20px;
             overflow: hidden;
             display: flex;
@@ -263,7 +296,7 @@ async def tenants_dashboard() -> HTMLResponse:
         
         .section-header {{
             padding: 1.5rem;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -281,7 +314,8 @@ async def tenants_dashboard() -> HTMLResponse:
             width: 40px;
             height: 40px;
             border-radius: 12px;
-            background: var(--accent-gradient);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -293,8 +327,9 @@ async def tenants_dashboard() -> HTMLResponse:
             border-radius: 20px;
             font-size: 0.75rem;
             font-weight: 600;
-            background: rgba(139, 92, 246, 0.2);
-            color: var(--accent-primary);
+            background: var(--surface-raised);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
         }}
         
         .section-content {{
@@ -310,18 +345,16 @@ async def tenants_dashboard() -> HTMLResponse:
         }}
         
         .tenant-card {{
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             border-radius: 16px;
             padding: 1.25rem;
-            transition: all 0.3s ease;
             cursor: pointer;
         }}
         
         .tenant-card:hover {{
-            transform: translateY(-2px);
-            border-color: rgba(139, 92, 246, 0.3);
-            box-shadow: var(--shadow-glow);
+            border-color: var(--border-hover);
+            background: var(--surface);
         }}
         
         .tenant-header {{
@@ -335,12 +368,14 @@ async def tenants_dashboard() -> HTMLResponse:
             width: 48px;
             height: 48px;
             border-radius: 12px;
-            background: var(--accent-gradient);
+            background: var(--surface);
+            border: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.25rem;
             font-weight: 700;
+            color: var(--text);
         }}
         
         .tenant-info {{ flex: 1; }}
@@ -349,6 +384,7 @@ async def tenants_dashboard() -> HTMLResponse:
             font-weight: 600;
             font-size: 1rem;
             margin-bottom: 0.25rem;
+            color: var(--text);
         }}
         
         .tenant-slug {{
@@ -362,10 +398,9 @@ async def tenants_dashboard() -> HTMLResponse:
             height: 10px;
             border-radius: 50%;
             background: var(--success);
-            box-shadow: 0 0 8px var(--success);
         }}
         
-        .tenant-status.inactive {{ background: var(--text-muted); box-shadow: none; }}
+        .tenant-status.inactive {{ background: var(--text-muted); }}
         
         .tenant-features {{
             display: flex;
@@ -375,7 +410,8 @@ async def tenants_dashboard() -> HTMLResponse:
         
         .feature-tag {{
             padding: 0.25rem 0.625rem;
-            background: var(--bg-card);
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 6px;
             font-size: 0.75rem;
             color: var(--text-secondary);
@@ -389,15 +425,15 @@ async def tenants_dashboard() -> HTMLResponse:
         }}
         
         .provider-card {{
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 1rem;
-            transition: all 0.3s ease;
         }}
         
         .provider-card:hover {{
-            border-color: rgba(255, 255, 255, 0.1);
+            border-color: var(--border-hover);
+            background: var(--surface);
         }}
         
         .provider-header {{
@@ -414,6 +450,7 @@ async def tenants_dashboard() -> HTMLResponse:
         .provider-name {{
             font-weight: 600;
             flex: 1;
+            color: var(--text);
         }}
         
         .provider-status {{
@@ -422,7 +459,7 @@ async def tenants_dashboard() -> HTMLResponse:
             border-radius: 50%;
         }}
         
-        .provider-status.enabled {{ background: var(--success); box-shadow: 0 0 8px var(--success); }}
+        .provider-status.enabled {{ background: var(--success); }}
         .provider-status.disabled {{ background: var(--text-muted); }}
         
         .provider-config {{
@@ -441,15 +478,14 @@ async def tenants_dashboard() -> HTMLResponse:
         }}
         
         .ff-card {{
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 1.25rem;
-            transition: all 0.3s ease;
         }}
         
         .ff-card:hover {{
-            border-color: rgba(59, 130, 246, 0.3);
+            border-color: var(--border-hover);
         }}
         
         .ff-header {{
@@ -468,6 +504,7 @@ async def tenants_dashboard() -> HTMLResponse:
         .ff-name {{
             font-weight: 600;
             margin-bottom: 0.25rem;
+            color: var(--text);
         }}
         
         .ff-mode {{
@@ -478,29 +515,28 @@ async def tenants_dashboard() -> HTMLResponse:
         .ff-toggle {{
             width: 48px;
             height: 26px;
-            background: var(--bg-card);
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 13px;
             position: relative;
-            cursor: pointer;
-            transition: all 0.3s ease;
         }}
         
-        .ff-toggle.active {{ background: var(--success); }}
+        .ff-toggle.active {{ background: var(--success); border-color: var(--success); }}
         
         .ff-toggle::after {{
             content: '';
             position: absolute;
             top: 3px;
             left: 3px;
-            width: 20px;
-            height: 20px;
-            background: white;
+            width: 18px;
+            height: 18px;
+            background: var(--text);
             border-radius: 50%;
-            transition: transform 0.3s ease;
         }}
         
         .ff-toggle.active::after {{
-            transform: translateX(22px);
+            left: auto;
+            right: 3px;
         }}
         
         /* Rate Limit Card */
@@ -512,7 +548,8 @@ async def tenants_dashboard() -> HTMLResponse:
         }}
         
         .rl-stat {{
-            background: var(--bg-secondary);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 1rem;
             text-align: center;
@@ -521,7 +558,7 @@ async def tenants_dashboard() -> HTMLResponse:
         .rl-value {{
             font-size: 2rem;
             font-weight: 700;
-            color: var(--accent-primary);
+            color: var(--text);
         }}
         
         .rl-label {{
@@ -533,7 +570,8 @@ async def tenants_dashboard() -> HTMLResponse:
         
         .rl-visual {{
             height: 8px;
-            background: var(--bg-secondary);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             border-radius: 4px;
             overflow: hidden;
             margin-top: 1rem;
@@ -541,9 +579,8 @@ async def tenants_dashboard() -> HTMLResponse:
         
         .rl-bar {{
             height: 100%;
-            background: var(--accent-gradient);
-            border-radius: 4px;
-            transition: width 0.5s ease;
+            background: var(--accent);
+            border-radius: 2px;
         }}
         
         /* Empty State */
@@ -561,15 +598,15 @@ async def tenants_dashboard() -> HTMLResponse:
         
         /* Loading */
         .skeleton {{
-            background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-hover) 50%, var(--bg-secondary) 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
             border-radius: 8px;
+            animation: pulse 1.5s infinite;
         }}
         
-        @keyframes shimmer {{
-            0% {{ background-position: -200% 0; }}
-            100% {{ background-position: 200% 0; }}
+        @keyframes pulse {{
+            0%, 100% {{ opacity: 1; }}
+            50% {{ opacity: 0.5; }}
         }}
     </style>
 </head>
@@ -577,8 +614,19 @@ async def tenants_dashboard() -> HTMLResponse:
     <div class="dashboard-container">
         <header class="header">
             <div class="header-content">
-                <h1 class="header-title">🏢 Tenants & Auth</h1>
-                <p class="header-subtitle">Multi-tenant configuration, identity providers, and feature flags</p>
+                <div class="header-title-group">
+                    <h1 class="header-title">🏢 Tenants & Auth</h1>
+                    <p class="header-subtitle">Multi-tenant configuration, identity providers, and feature flags</p>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
             </div>
         </header>
         
@@ -653,6 +701,41 @@ async def tenants_dashboard() -> HTMLResponse:
     </div>
     
     <script>
+        // Theme management
+        const themeToggle = document.getElementById('themeToggle');
+        const html = document.documentElement;
+        
+        function getStoredTheme() {{
+            try {{ return localStorage.getItem('tenants-dashboard-theme'); }} catch (e) {{ return null; }}
+        }}
+        
+        function setStoredTheme(theme) {{
+            try {{ localStorage.setItem('tenants-dashboard-theme', theme); }} catch (e) {{}}
+        }}
+        
+        function applyTheme(theme) {{
+            if (theme === 'light') {{
+                html.setAttribute('data-theme', 'light');
+            }} else {{
+                html.setAttribute('data-theme', 'dark');
+            }}
+        }}
+        
+        themeToggle.addEventListener('click', () => {{
+            const current = html.getAttribute('data-theme');
+            const next = current === 'light' ? 'dark' : 'light';
+            applyTheme(next);
+            setStoredTheme(next);
+        }});
+        
+        // Initialize theme
+        const savedTheme = getStoredTheme();
+        if (savedTheme) {{
+            applyTheme(savedTheme);
+        }} else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {{
+            applyTheme('light');
+        }}
+        
         async function loadState() {{
             try {{
                 const res = await fetch(window.location.pathname + '/state');
