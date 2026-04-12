@@ -18,6 +18,8 @@
 
 > **Note:** Many sub-routers expect host app modules (`core.datastores`, `start_utils`, configurations, …). Run inside a full FastMVC app or only import submodules you need (e.g. `layout`, `embed_signing`, `providers`).
 
+> **Core vs dashboards:** Generic “platform” building blocks that used to live under `fast_dashboards.core` (auth, tracing, encryption, smart cache, saga, etc.) are implemented in **`fast-platform`** under `fast_platform.core` (and `fast_platform.caching`). `fast_dashboards.core` still re-exports them for compatibility; prefer `from fast_platform.core…` in new code. Dashboard-only pieces remain here (`layout`, `router`, embed signing/theme/SEO, …).
+
 ## Looker (recipe)
 
 Looker **Signed embed** uses a server-generated SSO URL per session. Implement a small service that calls Looker’s API with your embed secret, then pass the returned URL to the iframe. Do **not** expect a static `build_embed_url` from this package — **`LookerEmbedProvider`** is a deliberate stub.
