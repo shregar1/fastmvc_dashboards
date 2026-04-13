@@ -7,6 +7,12 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
+from fast_dashboards.core.constants import (
+    ENGINE_DAGSTER,
+    ENGINE_PREFECT,
+    ENGINE_TEMPORAL,
+    STATUS_UNKNOWN,
+)
 from fast_dashboards.core._optional_import import optional_import
 
 try:
@@ -120,7 +126,7 @@ class TemporalWorkflowEngine(IWorkflowEngine):
             info = await handle.describe()
             return {
                 "workflowId": workflow_id,
-                "status": str(getattr(info, "status", "unknown")),
+                "status": str(getattr(info, "status", STATUS_UNKNOWN)),
             }
         except Exception as exc:
             logger.warning(
@@ -286,7 +292,7 @@ def build_workflow_engine() -> Optional[IWorkflowEngine]:
         logger.info("Workflow engine is disabled in configuration.")
         return None
 
-    if cfg.engine == "temporal":
+    if cfg.engine == ENGINE_TEMPORAL:
         try:
             return TemporalWorkflowEngine(
                 address=cfg.temporal_address,
@@ -296,7 +302,7 @@ def build_workflow_engine() -> Optional[IWorkflowEngine]:
         except Exception as exc:
             logger.warning("Failed to initialize Temporal engine: %s", exc)
 
-    if cfg.engine == "prefect":
+    if cfg.engine == ENGINE_PREFECT:
         try:
             return PrefectWorkflowEngine(
                 api_url=cfg.prefect_api_url,
@@ -305,7 +311,7 @@ def build_workflow_engine() -> Optional[IWorkflowEngine]:
         except Exception as exc:
             logger.warning("Failed to initialize Prefect engine: %s", exc)
 
-    if cfg.engine == "dagster":
+    if cfg.engine == ENGINE_DAGSTER:
         try:
             if not (cfg.dagster_grpc_endpoint and cfg.dagster_job_name):
                 raise RuntimeError("Dagster endpoint and job name must be configured")

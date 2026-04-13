@@ -10,6 +10,20 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse
 from loguru import logger
 
+from fast_dashboards.core.constants import (
+    AUTO_REFRESH_INTERVAL_MS,
+    DEFAULT_SITE_NAME,
+    LOCALSTORAGE_THEME_KEY_QUEUES,
+    RABBITMQ_TIMEOUT_SECONDS,
+    ROUTER_PREFIX_QUEUES,
+    STATUS_ACTIVE,
+    STATUS_DISABLED,
+    STATUS_ERROR,
+    STATUS_IDLE,
+    WORKER_BACKEND_CELERY,
+    WORKER_BACKEND_DRAMATIQ,
+    WORKER_BACKEND_RQ,
+)
 from fast_dashboards.core.registry import registry
 from fast_dashboards.core.seo import render_dashboard_inline_head
 from fast_dashboards.core._optional_import import optional_import
@@ -39,7 +53,7 @@ def _get_queues_config() -> Optional[Any]:
     return None
 
 
-router = APIRouter(prefix="/dashboard/queues", tags=["Queues Dashboard"])
+router = APIRouter(prefix=ROUTER_PREFIX_QUEUES, tags=["Queues Dashboard"])
 
 
 def _inspect_rabbitmq(cfg) -> Optional[Dict[str, Any]]:
@@ -63,7 +77,7 @@ def _inspect_rabbitmq(cfg) -> Optional[Dict[str, Any]]:
         if username and password:
             auth = (username, password)
         api_url = management_url.rstrip("/") + "/api/queues"
-        resp = httpx.get(api_url, auth=auth, timeout=3.0)
+        resp = httpx.get(api_url, auth=auth, timeout=RABBITMQ_TIMEOUT_SECONDS)
         resp.raise_for_status()
         queues = resp.json()
         total_ready = 0
@@ -150,54 +164,54 @@ def _inspect_jobs() -> Dict[str, Any]:
     cfg = _get_jobs_config()
     if cfg is None:
         return {
-            "celery": {
+            WORKER_BACKEND_CELERY: {
                 "enabled": False,
                 "workers": 0,
                 "active": 0,
                 "icon": "🌿",
                 "color": "#22c55e",
-                "status": "disabled",
+                "status": STATUS_DISABLED,
             },
-            "rq": {
+            WORKER_BACKEND_RQ: {
                 "enabled": False,
                 "queueSize": 0,
                 "failed": 0,
                 "icon": "🔴",
                 "color": "#ef4444",
-                "status": "disabled",
+                "status": STATUS_DISABLED,
             },
-            "dramatiq": {
+            WORKER_BACKEND_DRAMATIQ: {
                 "enabled": False,
                 "status": "n/a",
                 "icon": "🎭",
                 "color": "#8b5cf6",
-                "status": "disabled",
+                "status": STATUS_DISABLED,
             },
         }
 
     out: Dict[str, Any] = {
-        "celery": {
+        WORKER_BACKEND_CELERY: {
             "enabled": cfg.celery.enabled,
             "workers": 0,
             "active": 0,
             "icon": "🌿",
             "color": "#22c55e",
-            "status": "idle",
+            "status": STATUS_IDLE,
         },
-        "rq": {
+        WORKER_BACKEND_RQ: {
             "enabled": cfg.rq.enabled,
             "queueSize": 0,
             "failed": 0,
             "icon": "🔴",
             "color": "#ef4444",
-            "status": "idle",
+            "status": STATUS_IDLE,
         },
-        "dramatiq": {
+        WORKER_BACKEND_DRAMATIQ: {
             "enabled": cfg.dramatiq.enabled,
             "status": "configured" if cfg.dramatiq.enabled else "n/a",
             "icon": "🎭",
             "color": "#8b5cf6",
-            "status": "idle",
+            "status": STATUS_IDLE,
         },
     }
 
@@ -210,13 +224,13 @@ def _inspect_jobs() -> Dict[str, Any]:
             )
             insp = app.control.inspect()
             active = insp.active() or {}
-            out["celery"]["workers"] = len(active)
-            out["celery"]["active"] = sum(len(tasks or []) for tasks in active.values())
-            out["celery"]["status"] = "active" if len(active) > 0 else "idle"
+            out[WORKER_BACKEND_CELERY]["workers"] = len(active)
+            out[WORKER_BACKEND_CELERY]["active"] = sum(len(tasks or []) for tasks in active.values())
+            out[WORKER_BACKEND_CELERY]["status"] = STATUS_ACTIVE if len(active) > 0 else STATUS_IDLE
         except Exception as exc:
             logger.warning(f"Celery inspection failed: {exc}")
-            out["celery"]["error"] = str(exc)[:30]
-            out["celery"]["status"] = "error"
+            out[WORKER_BACKEND_CELERY]["error"] = str(exc)[:30]
+            out[WORKER_BACKEND_CELERY]["status"] = STATUS_ERROR
 
     if (
         cfg.rq.enabled
@@ -227,19 +241,19 @@ def _inspect_jobs() -> Dict[str, Any]:
         try:
             redis_conn = Redis.from_url(cfg.rq.redis_url)
             queue = rq.Queue(cfg.rq.queue_name, connection=redis_conn)
-            out["rq"]["queueSize"] = queue.count
+            out[WORKER_BACKEND_RQ]["queueSize"] = queue.count
             failed_registry = FailedJobRegistry(
                 cfg.rq.queue_name, connection=redis_conn
             )
-            out["rq"]["failed"] = len(failed_registry)
-            out["rq"]["status"] = "active" if queue.count > 0 else "idle"
+            out[WORKER_BACKEND_RQ]["failed"] = len(failed_registry)
+            out[WORKER_BACKEND_RQ]["status"] = STATUS_ACTIVE if queue.count > 0 else STATUS_IDLE
         except Exception as exc:
             logger.warning(f"RQ inspection failed: {exc}")
-            out["rq"]["error"] = str(exc)[:30]
-            out["rq"]["status"] = "error"
+            out[WORKER_BACKEND_RQ]["error"] = str(exc)[:30]
+            out[WORKER_BACKEND_RQ]["status"] = STATUS_ERROR
 
     if cfg.dramatiq.enabled:
-        out["dramatiq"]["status"] = "configured"
+        out[WORKER_BACKEND_DRAMATIQ]["status"] = "configured"
 
     return out
 
@@ -248,9 +262,9 @@ def _inspect_jobs() -> Dict[str, Any]:
 async def queues_dashboard() -> HTMLResponse:
     """Render the queues & jobs dashboard page."""
     _head_seo = render_dashboard_inline_head(
-        page_title="FastMVC Queues & Jobs Dashboard",
+        page_title=f"{DEFAULT_SITE_NAME} Queues & Jobs Dashboard",
         description="Queue backends, workers, and job runner status for RabbitMQ, SQS, NATS, Celery, RQ, and Dramatiq.",
-        path="/dashboard/queues",
+        path=ROUTER_PREFIX_QUEUES,
     )
 
     html = f"""<!DOCTYPE html>
@@ -739,7 +753,7 @@ async def queues_dashboard() -> HTMLResponse:
         const themeToggle = document.getElementById('theme-toggle');
         const html = document.documentElement;
         
-        const savedTheme = localStorage.getItem('queues-dashboard-theme');
+        const savedTheme = localStorage.getItem('{LOCALSTORAGE_THEME_KEY_QUEUES}');
         if (savedTheme) {{
             html.setAttribute('data-theme', savedTheme);
         }} else if (window.matchMedia('(prefers-color-scheme: light)').matches) {{
@@ -750,7 +764,7 @@ async def queues_dashboard() -> HTMLResponse:
             const currentTheme = html.getAttribute('data-theme');
             const newTheme = currentTheme === 'light' ? 'dark' : 'light';
             html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('queues-dashboard-theme', newTheme);
+            localStorage.setItem('{LOCALSTORAGE_THEME_KEY_QUEUES}', newTheme);
         }});
         
         async function loadState() {{
@@ -830,13 +844,13 @@ async def queues_dashboard() -> HTMLResponse:
                 const statusColor = info.status === 'active' ? 'var(--success)' : info.status === 'error' ? 'var(--error)' : 'var(--text-muted)';
                 
                 let statsHtml = '';
-                if (name === 'celery') {{
+                if (name === '{WORKER_BACKEND_CELERY}') {{
                     statsHtml = `
                         <div class="stat-item"><div class="stat-value">${{info.workers || 0}}</div><div class="stat-label">Workers</div></div>
                         <div class="stat-item"><div class="stat-value">${{info.active || 0}}</div><div class="stat-label">Active</div></div>
                         <div class="stat-item"><div class="stat-value">${{info.enabled ? 'On' : 'Off'}}</div><div class="stat-label">Status</div></div>
                     `;
-                }} else if (name === 'rq') {{
+                }} else if (name === '{WORKER_BACKEND_RQ}') {{
                     statsHtml = `
                         <div class="stat-item"><div class="stat-value">${{info.queueSize || 0}}</div><div class="stat-label">Queue</div></div>
                         <div class="stat-item"><div class="stat-value">${{info.failed || 0}}</div><div class="stat-label">Failed</div></div>
@@ -868,7 +882,7 @@ async def queues_dashboard() -> HTMLResponse:
         }}
         
         loadState();
-        setInterval(loadState, 5000);
+        setInterval(loadState, {AUTO_REFRESH_INTERVAL_MS});
     </script>
 </body>
 </html>"""

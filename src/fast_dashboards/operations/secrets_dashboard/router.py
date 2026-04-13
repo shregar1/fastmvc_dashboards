@@ -9,10 +9,19 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse
 
+from fast_dashboards.core.constants import (
+    AUTO_REFRESH_INTERVAL_MS,
+    DEFAULT_SECRETS_HEALTH_NAME,
+    ENV_CURRENT_FILENAME,
+    ENV_EXAMPLE_FILENAME,
+    ENV_SECRETS_HEALTH_CHECK,
+    LOCALSTORAGE_THEME_KEY_SECRETS,
+    ROUTER_PREFIX_SECRETS,
+)
 from fast_dashboards.core.registry import registry
 from fast_dashboards.sec.secrets import build_secrets_backend
 
-router = APIRouter(prefix="/dashboard/secrets", tags=["Secrets Dashboard"])
+router = APIRouter(prefix=ROUTER_PREFIX_SECRETS, tags=["Secrets Dashboard"])
 
 
 def _get_secrets_config() -> Optional[Any]:
@@ -120,7 +129,7 @@ async def _check_secret_health() -> Dict[str, Any]:
             "color": "#f59e0b",
         }
 
-    test_name = os.getenv("SECRETS_HEALTH_CHECK_NAME", "fastmvc/health")
+    test_name = os.getenv(ENV_SECRETS_HEALTH_CHECK, DEFAULT_SECRETS_HEALTH_NAME)
     try:
         value = await backend.get_secret(test_name)
         return {
@@ -174,8 +183,8 @@ def _diff_envs(base: Dict[str, str], current: Dict[str, str]) -> Dict[str, Any]:
 def _load_env_diff() -> Dict[str, Any]:
     """Load environment diff."""
     root = Path(".")
-    example = _parse_env_file(root / ".env.example")
-    current = _parse_env_file(root / ".env")
+    example = _parse_env_file(root / ENV_EXAMPLE_FILENAME)
+    current = _parse_env_file(root / ENV_CURRENT_FILENAME)
     if not example and not current:
         return {
             "hasEnv": False,
@@ -634,14 +643,14 @@ async def secrets_dashboard() -> HTMLResponse:
         const themeToggle = document.getElementById('theme-toggle');
         const html = document.documentElement;
         
-        const savedTheme = localStorage.getItem('theme') || 'dark';
+        const savedTheme = localStorage.getItem('{LOCALSTORAGE_THEME_KEY_SECRETS}') || 'dark';
         html.setAttribute('data-theme', savedTheme);
         
         themeToggle.addEventListener('click', () => {
             const currentTheme = html.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
+            localStorage.setItem('{LOCALSTORAGE_THEME_KEY_SECRETS}', newTheme);
         });
         
         async function loadState() {
@@ -743,7 +752,7 @@ async def secrets_dashboard() -> HTMLResponse:
         }
         
         loadState();
-        setInterval(loadState, 10000);
+        setInterval(loadState, {AUTO_REFRESH_INTERVAL_MS});
     </script>
 </body>
 </html>"""

@@ -7,10 +7,19 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse
 
+from fast_dashboards.core.constants import (
+    AUTO_REFRESH_INTERVAL_MS,
+    DEFAULT_SITE_NAME,
+    ENGINE_DAGSTER,
+    ENGINE_PREFECT,
+    ENGINE_TEMPORAL,
+    LOCALSTORAGE_THEME_KEY_WORKFLOWS,
+    ROUTER_PREFIX_WORKFLOWS,
+)
 from fast_dashboards.core.registry import registry
 from fast_dashboards.core.seo import render_dashboard_inline_head
 
-router = APIRouter(prefix="/dashboard/workflows", tags=["Workflows Dashboard"])
+router = APIRouter(prefix=ROUTER_PREFIX_WORKFLOWS, tags=["Workflows Dashboard"])
 
 
 def _get_workflows_config() -> Optional[Any]:
@@ -25,9 +34,9 @@ def _get_workflows_config() -> Optional[Any]:
 async def workflows_dashboard() -> HTMLResponse:
     """Render the workflows dashboard page."""
     _head_seo = render_dashboard_inline_head(
-        page_title="FastMVC Workflows Dashboard",
+        page_title=f"{DEFAULT_SITE_NAME} Workflows Dashboard",
         description="Workflow engine status, configuration, and example order lifecycle for FastMVC.",
-        path="/dashboard/workflows",
+        path=ROUTER_PREFIX_WORKFLOWS,
     )
 
     html = f"""<!DOCTYPE html>
@@ -573,14 +582,14 @@ async def workflows_dashboard() -> HTMLResponse:
         const html = document.documentElement;
         
         // Load saved theme or default to dark
-        const savedTheme = localStorage.getItem('workflows-theme') || 'dark';
+        const savedTheme = localStorage.getItem('{LOCALSTORAGE_THEME_KEY_WORKFLOWS}') || 'dark';
         html.setAttribute('data-theme', savedTheme);
         
         themeToggle.addEventListener('click', () => {{
             const currentTheme = html.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('workflows-theme', newTheme);
+            localStorage.setItem('{LOCALSTORAGE_THEME_KEY_WORKFLOWS}', newTheme);
         }});
         
         async function loadState() {{
@@ -599,16 +608,16 @@ async def workflows_dashboard() -> HTMLResponse:
             
             // Update engine options
             document.querySelectorAll('.engine-option').forEach(opt => opt.classList.remove('active'));
-            if (engine.engineName === 'temporal') document.getElementById('opt-temporal').classList.add('active');
-            if (engine.engineName === 'prefect') document.getElementById('opt-prefect').classList.add('active');
-            if (engine.engineName === 'dagster') document.getElementById('opt-dagster').classList.add('active');
+            if (engine.engineName === '{ENGINE_TEMPORAL}') document.getElementById('opt-temporal').classList.add('active');
+            if (engine.engineName === '{ENGINE_PREFECT}') document.getElementById('opt-prefect').classList.add('active');
+            if (engine.engineName === '{ENGINE_DAGSTER}') document.getElementById('opt-dagster').classList.add('active');
             
             const container = document.getElementById('engine-details');
             
             const engineIcons = {{
-                temporal: '⏳',
-                prefect: '🐦',
-                dagster: '🎯'
+                {ENGINE_TEMPORAL}: '⏳',
+                {ENGINE_PREFECT}: '🐦',
+                {ENGINE_DAGSTER}: '🎯'
             }};
             
             container.innerHTML = `
@@ -620,22 +629,22 @@ async def workflows_dashboard() -> HTMLResponse:
                     </div>
                     ${{engine.enabled ? `
                     <div class="engine-config">
-                        ${{engine.temporal ? `
+                        ${{engine.{ENGINE_TEMPORAL} ? `
                             <div class="config-row">
                                 <span class="config-label">Address</span>
-                                <span class="config-value">${{engine.temporal}}</span>
+                                <span class="config-value">${{engine.{ENGINE_TEMPORAL}}}</span>
                             </div>
                         ` : ''}}
-                        ${{engine.prefect ? `
+                        ${{engine.{ENGINE_PREFECT} ? `
                             <div class="config-row">
                                 <span class="config-label">API URL</span>
-                                <span class="config-value">${{engine.prefect}}</span>
+                                <span class="config-value">${{engine.{ENGINE_PREFECT}}}</span>
                             </div>
                         ` : ''}}
-                        ${{engine.dagster ? `
+                        ${{engine.{ENGINE_DAGSTER} ? `
                             <div class="config-row">
                                 <span class="config-label">gRPC Endpoint</span>
-                                <span class="config-value">${{engine.dagster}}</span>
+                                <span class="config-value">${{engine.{ENGINE_DAGSTER}}}</span>
                             </div>
                         ` : ''}}
                     </div>
@@ -670,7 +679,7 @@ async def workflows_dashboard() -> HTMLResponse:
         }}
         
         loadState();
-        setInterval(loadState, 8000);
+        setInterval(loadState, {AUTO_REFRESH_INTERVAL_MS});
     </script>
 </body>
 </html>"""
@@ -692,14 +701,14 @@ async def workflows_state() -> JSONResponse:
         engine_info = {
             "enabled": getattr(cfg, "enabled", False),
             "engineName": getattr(cfg, "engine", None),
-            "temporal": f"{getattr(cfg, 'temporal_address', '')} / {getattr(cfg, 'temporal_namespace', '')}"
-            if getattr(cfg, "engine", None) == "temporal"
+            ENGINE_TEMPORAL: f"{getattr(cfg, 'temporal_address', '')} / {getattr(cfg, 'temporal_namespace', '')}"
+            if getattr(cfg, "engine", None) == ENGINE_TEMPORAL
             else None,
-            "prefect": getattr(cfg, "prefect_api_url", "")
-            if getattr(cfg, "engine", None) == "prefect"
+            ENGINE_PREFECT: getattr(cfg, "prefect_api_url", "")
+            if getattr(cfg, "engine", None) == ENGINE_PREFECT
             else None,
-            "dagster": getattr(cfg, "dagster_grpc_endpoint", "")
-            if getattr(cfg, "engine", None) == "dagster"
+            ENGINE_DAGSTER: getattr(cfg, "dagster_grpc_endpoint", "")
+            if getattr(cfg, "engine", None) == ENGINE_DAGSTER
             else None,
         }
 

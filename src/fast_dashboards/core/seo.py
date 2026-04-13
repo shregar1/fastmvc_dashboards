@@ -20,6 +20,26 @@ from dataclasses import dataclass, field
 from html import escape
 from typing import Any
 
+from fast_dashboards.core.constants import (
+    DEFAULT_LOCALE,
+    DEFAULT_OG_TYPE,
+    DEFAULT_ROBOTS_PRIVATE,
+    DEFAULT_SITE_NAME,
+    DEFAULT_THEME_COLOR,
+    DEFAULT_TWITTER_CARD,
+    ENV_PUBLIC_BASE_URL,
+    FALLBACK_PROJECT_URL,
+    JSONLD_APP_CATEGORY,
+    JSONLD_OS,
+    JSONLD_SCHEMA_CONTEXT,
+    JSONLD_TYPE_SOFTWARE,
+    JSONLD_TYPE_WEBPAGE,
+    MAX_DESCRIPTION_LENGTH,
+    META_CHARSET,
+    OG_IMAGE_HEIGHT,
+    OG_IMAGE_WIDTH,
+)
+
 
 def render_dashboard_inline_head(
     *, page_title: str, description: str, path: str
@@ -85,14 +105,14 @@ class PageSEO:
     description: str
     canonical_url: str | None = None
     path: str = "/"
-    site_name: str = "FastMVC"
-    locale: str = "en_US"
-    og_type: str = "website"
+    site_name: str = DEFAULT_SITE_NAME
+    locale: str = DEFAULT_LOCALE
+    og_type: str = DEFAULT_OG_TYPE
     og_image_url: str | None = None
-    twitter_card: str = "summary_large_image"
+    twitter_card: str = DEFAULT_TWITTER_CARD
     twitter_site: str | None = None
-    robots: str = "noindex, nofollow"
-    theme_color: str = "#020617"
+    robots: str = DEFAULT_ROBOTS_PRIVATE
+    theme_color: str = DEFAULT_THEME_COLOR
     include_json_ld: bool = True
     extra_json_ld: tuple[dict[str, Any], ...] = field(default_factory=tuple)
 
@@ -106,7 +126,7 @@ def _absolute_url(path: str) -> str | None:
     Returns:
         The result of the operation.
     """
-    base = (os.environ.get("FASTMVC_PUBLIC_BASE_URL") or "").rstrip("/")
+    base = (os.environ.get(ENV_PUBLIC_BASE_URL) or "").rstrip("/")
     if not base:
         return None
     p = path if path.startswith("/") else f"/{path}"
@@ -124,7 +144,7 @@ def default_dashboard_seo(
     """Sensible SEO for operational dashboards: **noindex** by default, full OG/Twitter for link previews."""
     return PageSEO(
         title=page_title,
-        description=_strip_ws(description)[:320],
+        description=_strip_ws(description)[:MAX_DESCRIPTION_LENGTH],
         path=path,
         canonical_url=canonical_url or _absolute_url(path),
         og_image_url=og_image_url,
@@ -147,7 +167,7 @@ def render_seo_head(seo: PageSEO) -> str:
     canonical_e = escape(canonical, quote=True) if canonical else None
 
     lines: list[str] = [
-        '<meta charset="UTF-8" />',
+        f'<meta charset="{META_CHARSET}" />',
         f"<title>{escape(seo.title)}</title>",
         '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />',
         f'<meta name="description" content="{desc_e}" />',
@@ -169,8 +189,8 @@ def render_seo_head(seo: PageSEO) -> str:
     if seo.og_image_url:
         img_e = escape(seo.og_image_url, quote=True)
         lines.append(f'<meta property="og:image" content="{img_e}" />')
-        lines.append('<meta property="og:image:width" content="1200" />')
-        lines.append('<meta property="og:image:height" content="630" />')
+        lines.append(f'<meta property="og:image:width" content="{OG_IMAGE_WIDTH}" />')
+        lines.append(f'<meta property="og:image:height" content="{OG_IMAGE_HEIGHT}" />')
 
     lines.extend(
         [
@@ -191,7 +211,7 @@ def render_seo_head(seo: PageSEO) -> str:
         if canonical:
             graph.append(
                 {
-                    "@type": "WebPage",
+                    "@type": JSONLD_TYPE_WEBPAGE,
                     "@id": f"{canonical}#webpage",
                     "url": canonical,
                     "name": seo.title,
@@ -206,13 +226,13 @@ def render_seo_head(seo: PageSEO) -> str:
                 "applicationCategory": "DeveloperApplication",
                 "operatingSystem": "Cross-platform",
                 "description": "Production-grade FastAPI building blocks for Python.",
-                "url": _absolute_url("/") or "https://github.com/shregar1/fastMVC",
+                "url": _absolute_url("/") or FALLBACK_PROJECT_URL,
                 "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
             }
         )
         for extra in seo.extra_json_ld:
             graph.append(extra)
-        payload = {"@context": "https://schema.org", "@graph": graph}
+        payload = {"@context": JSONLD_SCHEMA_CONTEXT, "@graph": graph}
         ld = _json_ld_embed(payload)
         lines.append(f'<script type="application/ld+json">{ld}</script>')
 

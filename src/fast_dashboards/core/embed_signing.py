@@ -12,6 +12,15 @@ import time
 import urllib.parse
 from typing import TYPE_CHECKING, Optional
 
+from fast_dashboards.core.constants import (
+    ENCODING_UTF8,
+    QUERY_PARAM_EXPIRES,
+    QUERY_PARAM_LOCALE,
+    QUERY_PARAM_SIGNATURE,
+    QUERY_PARAM_THEME,
+    QUERY_PARAM_TOKEN_ID,
+)
+
 if TYPE_CHECKING:
     from .embed_revocation import EmbedRevocationChecker
 
@@ -25,7 +34,7 @@ def _canonical_query(params: dict[str, str]) -> str:
     Returns:
         The result of the operation.
     """
-    items = sorted((k, str(v)) for k, v in params.items() if k != "sig")
+    items = sorted((k, str(v)) for k, v in params.items() if k != QUERY_PARAM_SIGNATURE)
     return urllib.parse.urlencode(items)
 
 
@@ -40,7 +49,7 @@ def _signing_message(path: str, params: dict[str, str]) -> bytes:
         The result of the operation.
     """
     q = _canonical_query(params)
-    return f"{path}?{q}".encode("utf-8")
+    return f"{path}?{q}".encode(ENCODING_UTF8)
 
 
 def sign_embed_url(
@@ -67,18 +76,18 @@ def sign_embed_url(
         for k, v in urllib.parse.parse_qsl(parsed.query, keep_blank_values=True):
             merged[k] = v
     exp = int(time.time()) + int(ttl_seconds)
-    merged["exp"] = str(exp)
+    merged[QUERY_PARAM_EXPIRES] = str(exp)
     if extra_params:
         merged.update({k: str(v) for k, v in extra_params.items()})
     if token_id is not None:
-        merged["tid"] = str(token_id)
+        merged[QUERY_PARAM_TOKEN_ID] = str(token_id)
     if theme is not None:
-        merged["theme"] = str(theme)
+        merged[QUERY_PARAM_THEME] = str(theme)
     if locale is not None:
-        merged["locale"] = str(locale)
+        merged[QUERY_PARAM_LOCALE] = str(locale)
     msg = _signing_message(path, merged)
     sig = hmac.new(secret, msg, hashlib.sha256).hexdigest()
-    merged["sig"] = sig
+    merged[QUERY_PARAM_SIGNATURE] = sig
     new_query = urllib.parse.urlencode(sorted(merged.items()))
     return urllib.parse.urlunparse(
         (parsed.scheme, parsed.netloc, path, parsed.params, new_query, parsed.fragment)
@@ -101,8 +110,8 @@ def verify_signed_embed_url(
     if not parsed.query:
         return None
     params = dict(urllib.parse.parse_qsl(parsed.query, keep_blank_values=True))
-    sig = params.get("sig")
-    exp_s = params.get("exp")
+    sig = params.get(QUERY_PARAM_SIGNATURE)
+    exp_s = params.get(QUERY_PARAM_EXPIRES)
     if not sig or exp_s is None:
         return None
     try:
@@ -115,7 +124,7 @@ def verify_signed_embed_url(
     expected = hmac.new(secret, msg, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, sig):
         return None
-    tid = params.get("tid")
+    tid = params.get(QUERY_PARAM_TOKEN_ID)
     if tid is not None and revocation is not None and revocation.is_revoked(tid):
         return None
     return params

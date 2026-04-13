@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Optional
 
+from fast_dashboards.core.constants import QUERY_PARAM_LOCALE, QUERY_PARAM_THEME
+
 
 @dataclass(frozen=True)
 class EmbedThemeParams:
@@ -25,7 +27,7 @@ def theme_to_extra_params(theme: EmbedThemeParams) -> dict[str, str]:
     """Map to flat query values (``theme``, ``locale``) merged into signed URLs."""
     out: dict[str, str] = {}
     if theme.appearance is not None:
-        out["theme"] = theme.appearance
+        out[QUERY_PARAM_THEME] = theme.appearance
     if theme.locale:
-        out["locale"] = theme.locale
+        out[QUERY_PARAM_LOCALE] = theme.locale
     return out

@@ -14,6 +14,38 @@ from fastapi.responses import HTMLResponse
 from loguru import logger
 from sqlalchemy import text
 
+from fast_dashboards.core.constants import (
+    AUTO_REFRESH_INTERVAL_MS,
+    CASSANDRA_HEALTH_QUERY,
+    COLOR_ERROR,
+    COLOR_NEUTRAL,
+    COLOR_SUCCESS,
+    DEFAULT_AWS_REGION,
+    DEFAULT_CASSANDRA_HOST,
+    DEFAULT_CASSANDRA_PORT,
+    DEFAULT_COSMOS_ACCOUNT_URI,
+    DEFAULT_COSMOS_DATABASE,
+    DEFAULT_ELASTICSEARCH_HOST,
+    DEFAULT_MONGO_DATABASE,
+    DEFAULT_MONGO_URI,
+    DEFAULT_SCYLLA_PORT,
+    DEFAULT_SITE_NAME,
+    DYNAMO_HEALTH_TABLE,
+    ENV_CASSANDRA_ENABLED,
+    ENV_COSMOS_ENABLED,
+    ENV_DYNAMO_ENABLED,
+    ENV_ELASTICSEARCH_ENABLED,
+    ENV_MONGO_ENABLED,
+    ENV_SCYLLA_ENABLED,
+    LOCALSTORAGE_THEME_KEY_API,
+    POSTGRES_HEALTH_QUERY,
+    ROUTER_PREFIX_HEALTH,
+    STATUS_HEALTHY,
+    STATUS_SKIPPED,
+    STATUS_UNHEALTHY,
+    TRUNCATION_LIMIT,
+    TRUTHY_ENV_VALUES,
+)
 from ...core.registry import registry
 from ...core.seo import render_dashboard_inline_head
 
@@ -36,7 +68,7 @@ def _truncate_text(text: str, limit: int) -> str:
     return text[0:limit]  # type: ignore
 
 
-router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+router = APIRouter(prefix=ROUTER_PREFIX_HEALTH, tags=["Dashboard"])
 
 
 def _bool_env(name: str, default: str = "false") -> bool:
@@ -49,7 +81,7 @@ def _bool_env(name: str, default: str = "false") -> bool:
     Returns:
         The result of the operation.
     """
-    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
+    return os.getenv(name, default).strip().lower() in TRUTHY_ENV_VALUES
 
 
 def _check_postgres() -> Dict[str, Any]:
@@ -60,10 +92,10 @@ def _check_postgres() -> Dict[str, Any]:
     """
     db_session = registry.get_db_session()
     enabled = db_session is not None
-    status = "skipped"
+    status = STATUS_SKIPPED
     message = "Database not configured"
     icon = "🐘"
-    color = "#94a3b8"
+    color = COLOR_NEUTRAL
     if not enabled:
         return {
             "name": "PostgreSQL",
@@ -76,15 +108,15 @@ def _check_postgres() -> Dict[str, Any]:
         }
 
     try:
-        db_session.execute(text("SELECT 1"))
-        status = "healthy"
+        db_session.execute(text(POSTGRES_HEALTH_QUERY))
+        status = STATUS_HEALTHY
         message = "Connected"
-        color = "#22c55e"
+        color = COLOR_SUCCESS
     except Exception as exc:
         logger.error(f"PostgreSQL health check failed: {exc}")
-        status = "unhealthy"
-        message = _truncate_text(f"{exc}", 50)
-        color = "#ef4444"
+        status = STATUS_UNHEALTHY
+        message = _truncate_text(f"{exc}", TRUNCATION_LIMIT)
+        color = COLOR_ERROR
     return {
         "name": "PostgreSQL",
         "key": "postgres",
@@ -104,10 +136,10 @@ def _check_redis() -> Dict[str, Any]:
     """
     redis_session = registry.get_redis_session()
     enabled = redis_session is not None
-    status = "skipped"
+    status = STATUS_SKIPPED
     message = "Redis not configured"
     icon = "⚡"
-    color = "#94a3b8"
+    color = COLOR_NEUTRAL
     if not enabled:
         return {
             "name": "Redis",
@@ -121,18 +153,18 @@ def _check_redis() -> Dict[str, Any]:
 
     try:
         if redis_session.ping():
-            status = "healthy"
+            status = STATUS_HEALTHY
             message = "Connected"
-            color = "#22c55e"
+            color = COLOR_SUCCESS
         else:
-            status = "unhealthy"
+            status = STATUS_UNHEALTHY
             message = "Ping failed"
-            color = "#ef4444"
+            color = COLOR_ERROR
     except Exception as exc:
         logger.error(f"Redis health check failed: {exc}")
-        status = "unhealthy"
-        message = _truncate_text(f"{exc}", 50)
-        color = "#ef4444"
+        status = STATUS_UNHEALTHY
+        message = _truncate_text(f"{exc}", TRUNCATION_LIMIT)
+        color = COLOR_ERROR
     return {
         "name": "Redis",
         "key": "redis",
@@ -150,15 +182,15 @@ def _check_mongo() -> Dict[str, Any]:
     Returns:
         The result of the operation.
     """
-    enabled = _bool_env("MONGO_ENABLED", "false")
+    enabled = _bool_env(ENV_MONGO_ENABLED, "false")
     icon = "🍃"
-    color = "#94a3b8"
+    color = COLOR_NEUTRAL
     if not enabled:
         return {
             "name": "MongoDB",
             "key": "mongo",
             "enabled": False,
-            "status": "skipped",
+            "status": STATUS_SKIPPED,
             "message": "Disabled",
             "icon": icon,
             "color": color,
@@ -171,14 +203,14 @@ def _check_mongo() -> Dict[str, Any]:
                 "name": "MongoDB",
                 "key": "mongo",
                 "enabled": True,
-                "status": "unhealthy",
+                "status": STATUS_UNHEALTHY,
                 "message": "Store not available",
                 "icon": icon,
-                "color": "#ef4444",
+                "color": COLOR_ERROR,
             }
         store = MongoDocumentStore(
-            uri=os.getenv("MONGO_URI", "mongodb://localhost:27017"),
-            database=os.getenv("MONGO_DATABASE", "admin"),
+            uri=os.getenv("MONGO_URI", DEFAULT_MONGO_URI),
+            database=os.getenv("MONGO_DATABASE", DEFAULT_MONGO_DATABASE),
         )
         store.connect()
         db = store.get_database()
@@ -188,10 +220,10 @@ def _check_mongo() -> Dict[str, Any]:
             "name": "MongoDB",
             "key": "mongo",
             "enabled": True,
-            "status": "healthy",
+            "status": STATUS_HEALTHY,
             "message": "Connected",
             "icon": icon,
-            "color": "#22c55e",
+            "color": COLOR_SUCCESS,
         }
     except Exception as exc:
         logger.error(f"MongoDB health check failed: {exc}")
@@ -199,10 +231,10 @@ def _check_mongo() -> Dict[str, Any]:
             "name": "MongoDB",
             "key": "mongo",
             "enabled": True,
-            "status": "unhealthy",
-            "message": _truncate_text(f"{exc}", 50),
+            "status": STATUS_UNHEALTHY,
+            "message": _truncate_text(f"{exc}", TRUNCATION_LIMIT),
             "icon": icon,
-            "color": "#ef4444",
+            "color": COLOR_ERROR,
         }
 
 
@@ -212,15 +244,15 @@ def _check_cassandra() -> Dict[str, Any]:
     Returns:
         The result of the operation.
     """
-    enabled = _bool_env("CASSANDRA_ENABLED", "false")
+    enabled = _bool_env(ENV_CASSANDRA_ENABLED, "false")
     icon = "🔱"
-    color = "#94a3b8"
+    color = COLOR_NEUTRAL
     if not enabled:
         return {
             "name": "Cassandra",
             "key": "cassandra",
             "enabled": False,
-            "status": "skipped",
+            "status": STATUS_SKIPPED,
             "message": "Disabled",
             "icon": icon,
             "color": color,
@@ -233,29 +265,29 @@ def _check_cassandra() -> Dict[str, Any]:
                 "name": "Cassandra",
                 "key": "cassandra",
                 "enabled": True,
-                "status": "unhealthy",
+                "status": STATUS_UNHEALTHY,
                 "message": "Store not available",
                 "icon": icon,
-                "color": "#ef4444",
+                "color": COLOR_ERROR,
             }
         store = CassandraWideColumnStore(
-            contact_points=os.getenv("CASSANDRA_CONTACT_POINTS", "127.0.0.1").split(
+            contact_points=os.getenv("CASSANDRA_CONTACT_POINTS", DEFAULT_CASSANDRA_HOST).split(
                 ","
             ),
-            port=int(os.getenv("CASSANDRA_PORT", "9042")),
+            port=int(os.getenv("CASSANDRA_PORT", str(DEFAULT_CASSANDRA_PORT))),
             keyspace=os.getenv("CASSANDRA_KEYSPACE"),
         )
         store.connect()
-        store.execute("SELECT release_version FROM system.local")
+        store.execute(CASSANDRA_HEALTH_QUERY)
         store.disconnect()
         return {
             "name": "Cassandra",
             "key": "cassandra",
             "enabled": True,
-            "status": "healthy",
+            "status": STATUS_HEALTHY,
             "message": "Connected",
             "icon": icon,
-            "color": "#22c55e",
+            "color": COLOR_SUCCESS,
         }
     except Exception as exc:
         logger.error(f"Cassandra health check failed: {exc}")
@@ -263,10 +295,10 @@ def _check_cassandra() -> Dict[str, Any]:
             "name": "Cassandra",
             "key": "cassandra",
             "enabled": True,
-            "status": "unhealthy",
-            "message": _truncate_text(f"{exc}", 50),
+            "status": STATUS_UNHEALTHY,
+            "message": _truncate_text(f"{exc}", TRUNCATION_LIMIT),
             "icon": icon,
-            "color": "#ef4444",
+            "color": COLOR_ERROR,
         }
 
 
@@ -276,15 +308,15 @@ def _check_scylla() -> Dict[str, Any]:
     Returns:
         The result of the operation.
     """
-    enabled = _bool_env("SCYLLA_ENABLED", "false")
+    enabled = _bool_env(ENV_SCYLLA_ENABLED, "false")
     icon = "🌊"
-    color = "#94a3b8"
+    color = COLOR_NEUTRAL
     if not enabled:
         return {
             "name": "ScyllaDB",
             "key": "scylla",
             "enabled": False,
-            "status": "skipped",
+            "status": STATUS_SKIPPED,
             "message": "Disabled",
             "icon": icon,
             "color": color,
@@ -297,27 +329,27 @@ def _check_scylla() -> Dict[str, Any]:
                 "name": "ScyllaDB",
                 "key": "scylla",
                 "enabled": True,
-                "status": "unhealthy",
+                "status": STATUS_UNHEALTHY,
                 "message": "Store not available",
                 "icon": icon,
-                "color": "#ef4444",
+                "color": COLOR_ERROR,
             }
         store = ScyllaWideColumnStore(
-            contact_points=os.getenv("SCYLLA_CONTACT_POINTS", "127.0.0.1").split(","),
-            port=int(os.getenv("SCYLLA_PORT", "9042")),
+            contact_points=os.getenv("SCYLLA_CONTACT_POINTS", DEFAULT_CASSANDRA_HOST).split(","),
+            port=int(os.getenv("SCYLLA_PORT", str(DEFAULT_SCYLLA_PORT))),
             keyspace=os.getenv("SCYLLA_KEYSPACE"),
         )
         store.connect()
-        store.execute("SELECT release_version FROM system.local")
+        store.execute(CASSANDRA_HEALTH_QUERY)
         store.disconnect()
         return {
             "name": "ScyllaDB",
             "key": "scylla",
             "enabled": True,
-            "status": "healthy",
+            "status": STATUS_HEALTHY,
             "message": "Connected",
             "icon": icon,
-            "color": "#22c55e",
+            "color": COLOR_SUCCESS,
         }
     except Exception as exc:
         logger.error(f"ScyllaDB health check failed: {exc}")
@@ -325,10 +357,10 @@ def _check_scylla() -> Dict[str, Any]:
             "name": "ScyllaDB",
             "key": "scylla",
             "enabled": True,
-            "status": "unhealthy",
-            "message": _truncate_text(f"{exc}", 50),
+            "status": STATUS_UNHEALTHY,
+            "message": _truncate_text(f"{exc}", TRUNCATION_LIMIT),
             "icon": icon,
-            "color": "#ef4444",
+            "color": COLOR_ERROR,
         }
 
 
@@ -338,15 +370,15 @@ def _check_dynamo() -> Dict[str, Any]:
     Returns:
         The result of the operation.
     """
-    enabled = _bool_env("DYNAMO_ENABLED", "false")
+    enabled = _bool_env(ENV_DYNAMO_ENABLED, "false")
     icon = "📦"
-    color = "#94a3b8"
+    color = COLOR_NEUTRAL
     if not enabled:
         return {
             "name": "DynamoDB",
             "key": "dynamo",
             "enabled": False,
-            "status": "skipped",
+            "status": STATUS_SKIPPED,
             "message": "Disabled",
             "icon": icon,
             "color": color,
@@ -359,14 +391,14 @@ def _check_dynamo() -> Dict[str, Any]:
                 "name": "DynamoDB",
                 "key": "dynamo",
                 "enabled": True,
-                "status": "unhealthy",
+                "status": STATUS_UNHEALTHY,
                 "message": "Store not available",
                 "icon": icon,
-                "color": "#ef4444",
+                "color": COLOR_ERROR,
             }
         store = DynamoKeyValueStore(
-            table_name="healthcheck",
-            region_name=os.getenv("DYNAMO_REGION", "us-east-1"),
+            table_name=DYNAMO_HEALTH_TABLE,
+            region_name=os.getenv("DYNAMO_REGION", DEFAULT_AWS_REGION),
         )
         store.connect()
         store.disconnect()
@@ -374,10 +406,10 @@ def _check_dynamo() -> Dict[str, Any]:
             "name": "DynamoDB",
             "key": "dynamo",
             "enabled": True,
-            "status": "healthy",
-            "message": f"Region: {os.getenv('DYNAMO_REGION', 'us-east-1')}",
+            "status": STATUS_HEALTHY,
+            "message": f"Region: {os.getenv('DYNAMO_REGION', DEFAULT_AWS_REGION)}",
             "icon": icon,
-            "color": "#22c55e",
+            "color": COLOR_SUCCESS,
         }
     except Exception as exc:
         logger.error(f"DynamoDB health check failed: {exc}")
@@ -385,10 +417,10 @@ def _check_dynamo() -> Dict[str, Any]:
             "name": "DynamoDB",
             "key": "dynamo",
             "enabled": True,
-            "status": "unhealthy",
-            "message": _truncate_text(f"{exc}", 50),
+            "status": STATUS_UNHEALTHY,
+            "message": _truncate_text(f"{exc}", TRUNCATION_LIMIT),
             "icon": icon,
-            "color": "#ef4444",
+            "color": COLOR_ERROR,
         }
 
 
@@ -398,15 +430,15 @@ def _check_cosmos() -> Dict[str, Any]:
     Returns:
         The result of the operation.
     """
-    enabled = _bool_env("COSMOS_ENABLED", "false")
+    enabled = _bool_env(ENV_COSMOS_ENABLED, "false")
     icon = "🌌"
-    color = "#94a3b8"
+    color = COLOR_NEUTRAL
     if not enabled:
         return {
             "name": "Cosmos DB",
             "key": "cosmos",
             "enabled": False,
-            "status": "skipped",
+            "status": STATUS_SKIPPED,
             "message": "Disabled",
             "icon": icon,
             "color": color,
@@ -419,15 +451,15 @@ def _check_cosmos() -> Dict[str, Any]:
                 "name": "Cosmos DB",
                 "key": "cosmos",
                 "enabled": True,
-                "status": "unhealthy",
+                "status": STATUS_UNHEALTHY,
                 "message": "Store not available",
                 "icon": icon,
-                "color": "#ef4444",
+                "color": COLOR_ERROR,
             }
         store = CosmosDocumentStore(
-            account_uri=os.getenv("COSMOS_ACCOUNT_URI", ""),
+            account_uri=os.getenv("COSMOS_ACCOUNT_URI", DEFAULT_COSMOS_ACCOUNT_URI),
             account_key=os.getenv("COSMOS_ACCOUNT_KEY", ""),
-            database=os.getenv("COSMOS_DATABASE", "fastmvc"),
+            database=os.getenv("COSMOS_DATABASE", DEFAULT_COSMOS_DATABASE),
         )
         store.connect()
         _ = store.get_database()
@@ -436,10 +468,10 @@ def _check_cosmos() -> Dict[str, Any]:
             "name": "Cosmos DB",
             "key": "cosmos",
             "enabled": True,
-            "status": "healthy",
+            "status": STATUS_HEALTHY,
             "message": "Connected",
             "icon": icon,
-            "color": "#22c55e",
+            "color": COLOR_SUCCESS,
         }
     except Exception as exc:
         logger.error(f"Cosmos DB health check failed: {exc}")
@@ -447,10 +479,10 @@ def _check_cosmos() -> Dict[str, Any]:
             "name": "Cosmos DB",
             "key": "cosmos",
             "enabled": True,
-            "status": "unhealthy",
-            "message": _truncate_text(f"{exc}", 50),
+            "status": STATUS_UNHEALTHY,
+            "message": _truncate_text(f"{exc}", TRUNCATION_LIMIT),
             "icon": icon,
-            "color": "#ef4444",
+            "color": COLOR_ERROR,
         }
 
 
@@ -460,15 +492,15 @@ def _check_elasticsearch() -> Dict[str, Any]:
     Returns:
         The result of the operation.
     """
-    enabled = _bool_env("ELASTICSEARCH_ENABLED", "false")
+    enabled = _bool_env(ENV_ELASTICSEARCH_ENABLED, "false")
     icon = "🔍"
-    color = "#94a3b8"
+    color = COLOR_NEUTRAL
     if not enabled:
         return {
             "name": "Elasticsearch",
             "key": "elasticsearch",
             "enabled": False,
-            "status": "skipped",
+            "status": STATUS_SKIPPED,
             "message": "Disabled",
             "icon": icon,
             "color": color,
@@ -481,14 +513,14 @@ def _check_elasticsearch() -> Dict[str, Any]:
                 "name": "Elasticsearch",
                 "key": "elasticsearch",
                 "enabled": True,
-                "status": "unhealthy",
+                "status": STATUS_UNHEALTHY,
                 "message": "Store not available",
                 "icon": icon,
-                "color": "#ef4444",
+                "color": COLOR_ERROR,
             }
         hosts = [
             h.strip()
-            for h in os.getenv("ELASTICSEARCH_HOSTS", "http://localhost:9200").split(
+            for h in os.getenv("ELASTICSEARCH_HOSTS", DEFAULT_ELASTICSEARCH_HOST).split(
                 ","
             )
             if h.strip()
@@ -501,9 +533,9 @@ def _check_elasticsearch() -> Dict[str, Any]:
         store.connect()
         healthy = store.ping()
         store.disconnect()
-        status = "healthy" if healthy else "unhealthy"
+        status = STATUS_HEALTHY if healthy else STATUS_UNHEALTHY
         message = "Connected" if healthy else "Ping failed"
-        color = "#22c55e" if healthy else "#ef4444"
+        color = COLOR_SUCCESS if healthy else COLOR_ERROR
         return {
             "name": "Elasticsearch",
             "key": "elasticsearch",
@@ -519,10 +551,10 @@ def _check_elasticsearch() -> Dict[str, Any]:
             "name": "Elasticsearch",
             "key": "elasticsearch",
             "enabled": True,
-            "status": "unhealthy",
-            "message": _truncate_text(f"{exc}", 50),
+            "status": STATUS_UNHEALTHY,
+            "message": _truncate_text(f"{exc}", TRUNCATION_LIMIT),
             "icon": icon,
-            "color": "#ef4444",
+            "color": COLOR_ERROR,
         }
 
 
@@ -547,9 +579,9 @@ def _gather_services() -> List[Dict[str, Any]]:
 def _get_status_summary(services: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Generate status summary for visualization."""
     total = len(services)
-    healthy = sum(1 for s in services if s["status"] == "healthy")
-    unhealthy = sum(1 for s in services if s["status"] == "unhealthy")
-    skipped = sum(1 for s in services if s["status"] == "skipped")
+    healthy = sum(1 for s in services if s["status"] == STATUS_HEALTHY)
+    unhealthy = sum(1 for s in services if s["status"] == STATUS_UNHEALTHY)
+    skipped = sum(1 for s in services if s["status"] == STATUS_SKIPPED)
     enabled = sum(1 for s in services if s["enabled"])
 
     overall_status = (
@@ -579,9 +611,9 @@ async def health_dashboard() -> HTMLResponse:
     summary = _get_status_summary(services)
 
     _head_seo = render_dashboard_inline_head(
-        page_title="FastMVC Service Health",
+        page_title=f"{DEFAULT_SITE_NAME} Service Health",
         description="Live health checks for PostgreSQL, Redis, MongoDB, Elasticsearch, Cassandra, Scylla, DynamoDB, and Cosmos DB.",
-        path="/dashboard/health",
+        path=f"{ROUTER_PREFIX_HEALTH}/health",
     )
 
     # Build service cards
@@ -1044,17 +1076,17 @@ async def health_dashboard() -> HTMLResponse:
         const themeToggle = document.getElementById('theme-toggle');
         const html = document.documentElement;
         
-        const savedTheme = localStorage.getItem('theme') || 'dark';
+        const savedTheme = localStorage.getItem('{LOCALSTORAGE_THEME_KEY_API}') || 'dark';
         html.setAttribute('data-theme', savedTheme);
         
         themeToggle.addEventListener('click', () => {{
             const currentTheme = html.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
+            localStorage.setItem('{LOCALSTORAGE_THEME_KEY_API}', newTheme);
         }});
         
-        // Auto-refresh every 10 seconds
+        // Auto-refresh every {AUTO_REFRESH_INTERVAL_MS} ms
         setInterval(() => {{
             fetch(window.location.pathname)
                 .then(response => response.text())
@@ -1071,7 +1103,7 @@ async def health_dashboard() -> HTMLResponse:
                     }}
                 }})
                 .catch(err => console.error('Refresh failed:', err));
-        }}, 10000);
+        }}, {AUTO_REFRESH_INTERVAL_MS});
     </script>
 </body>
 </html>"""

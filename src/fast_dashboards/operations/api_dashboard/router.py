@@ -8,18 +8,28 @@ them from the UI to see whether they are active.
 from __future__ import annotations
 
 import json
+from http import HTTPStatus
 from typing import Any, Dict
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
+from fast_dashboards.core.constants import (
+    DEFAULT_SITE_NAME,
+    LOCALSTORAGE_THEME_KEY_API,
+    MAX_BODY_PREVIEW_LENGTH,
+    MAX_ERROR_LENGTH,
+    REQUEST_TIMEOUT_SECONDS,
+    ROUTER_PREFIX_API,
+    HTTP_STATUS_SERVER_ERROR_THRESHOLD,
+)
 from ...core.seo import render_dashboard_inline_head
 
 from .registry import EndpointSample, get_endpoint_sample, list_endpoint_samples
 
 
-router = APIRouter(prefix="/dashboard/api", tags=["API Dashboard"])
+router = APIRouter(prefix=ROUTER_PREFIX_API, tags=["API Dashboard"])
 
 
 def _serialize_sample(sample: EndpointSample) -> Dict[str, Any]:
@@ -51,9 +61,9 @@ async def api_dashboard() -> HTMLResponse:
     keep the backend logic simple and avoid static assets.
     """
     _head_seo = render_dashboard_inline_head(
-        page_title="FastMVC API Dashboard",
+        page_title=f"{DEFAULT_SITE_NAME} API Dashboard",
         description="Explore registered API endpoints, sample payloads, and live probes from the FastMVC API dashboard.",
-        path="/dashboard/api",
+        path=ROUTER_PREFIX_API,
     )
     html = (
         """
@@ -513,14 +523,14 @@ async def api_dashboard() -> HTMLResponse:
       const themeToggle = document.getElementById('theme-toggle');
       const html = document.documentElement;
       
-      const savedTheme = localStorage.getItem('theme') || 'dark';
+      const savedTheme = localStorage.getItem('{LOCALSTORAGE_THEME_KEY_API}') || 'dark';
       html.setAttribute('data-theme', savedTheme);
       
       themeToggle.addEventListener('click', () => {
         const currentTheme = html.getAttribute('data-theme');
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
         html.setAttribute('data-theme', newTheme);
-        localStorage.setItem('theme', newTheme);
+        localStorage.setItem('{LOCALSTORAGE_THEME_KEY_API}', newTheme);
       });
 
       // Dashboard functionality
@@ -607,7 +617,7 @@ async def api_dashboard() -> HTMLResponse:
 
       async function loadEndpoints() {
         try {
-          const res = await fetch("/dashboard/api/endpoints");
+          const res = await fetch("{ROUTER_PREFIX_API}/endpoints");
           if (!res.ok) {
             throw new Error("Failed to load endpoints");
           }
@@ -625,7 +635,7 @@ async def api_dashboard() -> HTMLResponse:
         runStatusEl.textContent = "Running…";
         runStatusEl.className = "status-text";
         try {
-          const res = await fetch("/dashboard/api/test/" + encodeURIComponent(activeKey), {
+          const res = await fetch("{ROUTER_PREFIX_API}/test/" + encodeURIComponent(activeKey), {
             method: "POST"
           });
           const body = await res.json();
@@ -692,7 +702,7 @@ async def test_endpoint(key: str, request: Request) -> JSONResponse:
 
     start = _time.perf_counter()
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
             response = await client.request(
                 method=method,
                 url=url,
@@ -707,14 +717,14 @@ async def test_endpoint(key: str, request: Request) -> JSONResponse:
             serialized = json.dumps(data)
         except Exception:
             serialized = response.text or ""
-        if len(serialized) > 400:
-            truncated_body = serialized[:400] + "…"  # type: ignore
+        if len(serialized) > MAX_BODY_PREVIEW_LENGTH:
+            truncated_body = serialized[:MAX_BODY_PREVIEW_LENGTH] + "…"  # type: ignore
         else:
             truncated_body = serialized
 
         return JSONResponse(
             content={
-                "ok": response.status_code < 500,
+                "ok": response.status_code < HTTP_STATUS_SERVER_ERROR_THRESHOLD,
                 "status": response.status_code,
                 "latency_ms": elapsed_ms,
                 "body": truncated_body,
@@ -727,7 +737,7 @@ async def test_endpoint(key: str, request: Request) -> JSONResponse:
                 "ok": False,
                 "status": 0,
                 "latency_ms": elapsed_ms,
-                "error": f"{exc}"[0:200],  # type: ignore
+                "error": f"{exc}"[0:MAX_ERROR_LENGTH],  # type: ignore
             },
-            status_code=200,
+            status_code=HTTPStatus.OK.value,
         )

@@ -7,10 +7,16 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse
 
+from fast_dashboards.core.constants import (
+    AUTO_REFRESH_INTERVAL_MS,
+    DEFAULT_SITE_NAME,
+    LOCALSTORAGE_THEME_KEY_TENANTS,
+    ROUTER_PREFIX_TENANTS,
+)
 from fast_dashboards.core.registry import registry
 from fast_dashboards.core.seo import render_dashboard_inline_head
 
-router = APIRouter(prefix="/dashboard/tenants", tags=["Tenants Dashboard"])
+router = APIRouter(prefix=ROUTER_PREFIX_TENANTS, tags=["Tenants Dashboard"])
 
 
 async def _load_tenants() -> List[Dict[str, Any]]:
@@ -143,9 +149,9 @@ def _load_quotas() -> Dict[str, Any]:
 async def tenants_dashboard() -> HTMLResponse:
     """Render the tenants/auth/feature-flags dashboard page."""
     _head_seo = render_dashboard_inline_head(
-        page_title="FastMVC Tenants & Auth Dashboard",
+        page_title=f"{DEFAULT_SITE_NAME} Tenants & Auth Dashboard",
         description="Tenants, identity providers, feature flags, and rate-limit configuration overview.",
-        path="/dashboard/tenants",
+        path=ROUTER_PREFIX_TENANTS,
     )
 
     html = f"""<!DOCTYPE html>
@@ -706,11 +712,11 @@ async def tenants_dashboard() -> HTMLResponse:
         const html = document.documentElement;
         
         function getStoredTheme() {{
-            try {{ return localStorage.getItem('tenants-dashboard-theme'); }} catch (e) {{ return null; }}
+            try {{ return localStorage.getItem('{LOCALSTORAGE_THEME_KEY_TENANTS}'); }} catch (e) {{ return null; }}
         }}
         
         function setStoredTheme(theme) {{
-            try {{ localStorage.setItem('tenants-dashboard-theme', theme); }} catch (e) {{}}
+            try {{ localStorage.setItem('{LOCALSTORAGE_THEME_KEY_TENANTS}', theme); }} catch (e) {{}}
         }}
         
         function applyTheme(theme) {{
@@ -862,7 +868,7 @@ async def tenants_dashboard() -> HTMLResponse:
         }}
         
         loadState();
-        setInterval(loadState, 8000);
+        setInterval(loadState, {AUTO_REFRESH_INTERVAL_MS});
     </script>
 </body>
 </html>"""

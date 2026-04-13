@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from fast_dashboards.core.constants import DEFAULT_HTML_LANG
+
 from .seo import PageSEO, default_dashboard_seo, render_seo_head
 
 BASE_CSS = """
@@ -197,7 +199,7 @@ def render_dashboard_page(
 
     html = f"""
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{DEFAULT_HTML_LANG}">
   <head>
     {head_seo}
     <style>

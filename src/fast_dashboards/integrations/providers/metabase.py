@@ -8,6 +8,15 @@ from __future__ import annotations
 import time
 from typing import Any, Literal, Optional
 
+from fast_dashboards.core.constants import (
+    DEFAULT_RESOURCE_KEY,
+    ENCODING_UTF8,
+    JWT_ALGORITHM_HS256,
+    PARAM_LOCALE,
+    THEME_FRAGMENT_DARK,
+    THEME_FRAGMENT_LIGHT,
+)
+
 
 class MetabaseEmbedProvider:
     """JWT-based embed URLs for Metabase dashboards or questions.
@@ -20,7 +29,7 @@ class MetabaseEmbedProvider:
         site_url: str,
         embedding_secret: str,
         *,
-        resource_key: str = "dashboard",
+        resource_key: str = DEFAULT_RESOURCE_KEY,
     ) -> None:
         """Execute __init__ operation.
 
@@ -71,18 +80,18 @@ class MetabaseEmbedProvider:
         now = int(time.time())
         merged_params: dict[str, Any] = dict(params or {})
         if locale:
-            merged_params.setdefault("_locale", locale)
+            merged_params.setdefault(PARAM_LOCALE, locale)
         payload: dict[str, Any] = {
             "resource": {self._resource_key: rid},
             "params": merged_params,
             "exp": now + int(ttl_seconds),
         }
-        token = jwt.encode(payload, self._secret, algorithm="HS256")
+        token = jwt.encode(payload, self._secret, algorithm=JWT_ALGORITHM_HS256)
         if isinstance(token, bytes):
-            token = token.decode("utf-8")
+            token = token.decode(ENCODING_UTF8)
         url = f"{self._site}/embed/{self._resource_key}/{token}"
         if theme == "dark":
-            url += "#theme=night"
+            url += THEME_FRAGMENT_DARK
         elif theme == "light":
-            url += "#theme=day"
+            url += THEME_FRAGMENT_LIGHT
         return url

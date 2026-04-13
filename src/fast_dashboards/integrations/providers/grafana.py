@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from fast_dashboards.core.constants import GRAFANA_EMBED_PATH_TEMPLATE
 from fast_dashboards.core.embed_signing import sign_embed_url
 
 
@@ -52,7 +53,7 @@ class GrafanaEmbedProvider:
         Returns:
             The result of the operation.
         """
-        base = f"{self._site}/d/{self._uid}/{resource_id.lstrip('/')}"
+        base = f"{self._site}{GRAFANA_EMBED_PATH_TEMPLATE.format(uid=self._uid, slug=resource_id.lstrip('/'))}"
         return sign_embed_url(
             base,
             self._secret,
