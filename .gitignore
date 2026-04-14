@@ -181,3 +181,6 @@ local_config.py
 # Profiling
 *.prof
 *.lprof
+
+# FastMVC local artifacts
+.fastmvc/
