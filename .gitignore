@@ -183,8 +183,9 @@ local_config.py
 *.prof
 *.lprof
 
-# FastMVC local artifacts
+# FastMVC / FastX local artifacts
 .fastmvc/
+.fastx/
 
 # Archives
 *.zip
