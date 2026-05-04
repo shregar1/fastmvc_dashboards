@@ -2,7 +2,7 @@
 
 **HTML dashboards for FastMVC:** FastAPI routers and shared layout/CSS for operational UIs—health, API activity, queues, tenants, secrets, workflows—and a reusable **`render_dashboard_page`** layout helper. Also **signed embed URLs** (time-limited HMAC) and **Metabase / Grafana** embed helpers behind one protocol.
 
-**Python:** 3.10+ · **Dependencies:** `fastapi`, `httpx`, `loguru`, `pydantic>=2`, `sqlalchemy>=2` · **Optional:** `PyJWT` for Metabase (`pip install 'fastx_dashboards[metabase]'`).
+**Python:** 3.10+ · **Dependencies:** `fastapi`, `httpx`, `loguru`, `pydantic>=2`, `sqlalchemy>=2` · **Optional:** `PyJWT` for Metabase (`pip install 'fastx-dashboards[metabase]'`).
 
 ## What you get
 
@@ -17,7 +17,7 @@
 - **Per-area routers** — e.g. `HealthDashboardRouter`, `ApiDashboardRouter`, … (see `src/fastx_dashboards/`).
 
 > **Note:** Many sub-routers expect host app modules (`core.datastores`, `start_utils`, configurations, …). Run inside a full FastMVC app or only import submodules you need (e.g. `layout`, `embed_signing`, `providers`).
-> **Core vs dashboards:** Generic “platform” building blocks that used to live under `fastx_dashboards.core` (auth, tracing, encryption, smart cache, saga, etc.) are implemented in **`fast-platform`** under `fastx_platform.core` (and `fastx_platform.caching`). `fastx_dashboards.core` still re-exports them for compatibility; prefer `from fastx_platform.core…` in new code. Dashboard-only pieces remain here (`layout`, `router`, embed signing/theme/SEO, …).
+> **Core vs dashboards:** Generic “platform” building blocks that used to live under `fastx_dashboards.core` (auth, tracing, encryption, smart cache, saga, etc.) are implemented in **`fastx-platform`** under `fastx_platform.core` (and `fastx_platform.caching`). `fastx_dashboards.core` still re-exports them for compatibility; prefer `from fastx_platform.core…` in new code. Dashboard-only pieces remain here (`layout`, `router`, embed signing/theme/SEO, …).
 
 ## Looker (recipe)
 
